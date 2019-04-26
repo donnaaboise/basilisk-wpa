@@ -11,7 +11,7 @@ scalar q[];
 scalar *scalars = {q};
 vector *vectors = NULL;
 
-bool dt_fixed = false;
+bool dt_fixed = true;
 
 double dt_initial;
 
@@ -45,7 +45,7 @@ int main()
 
 event init (i = 0) 
 {
-    dt_initial = 1e-4;
+    dt_initial = 1.13e-4;
     wpa_rp1 = rp1_adv;
 
     foreach() 
@@ -56,8 +56,7 @@ event init (i = 0)
     }
 }
 
-//event plot (t+=0.5; t<=4)
-event plot(i++; i <= 5)
+event plot (t+=0.5; t<=4)
 {
     if (!matlab_out)
     {        
