@@ -24,18 +24,15 @@ extern int matlab_out;
 #define BGHOSTS 2
 
 
-typedef void (*claw_rp1_t)(int meqn, int mwaves, 
+typedef void (*wpa_rp1_t)(int meqn, int mwaves, 
                            double *ql, double *qr, 
                            double *waves, double *speeds, 
                            double *amdq, double *apdq, double *flux);
 
-claw_rp1_t claw_rp1;   /* riemann solver */   
+wpa_rp1_t wpa_rp1;   /* riemann solver */   
 
 
 /* Values used internally */
-static vector *claw_fm = NULL;
-static vector *claw_fp = NULL;
-static vector *claw_flux = NULL;
 
 static int meqn;
 
@@ -46,23 +43,6 @@ int Frame = 0;
 
 event defaults (i = 0)
 {
-    statevars = list_concat (scalars, (scalar *) vectors);       
-
-
-    /* Set flux fields */
-    meqn = list_len(statevars);
-    for(int m = 0; m < meqn; m++)
-    {
-        vector fmv = new face vector;
-        claw_fm = vectors_append(claw_fm,fmv);
-
-        vector fpv = new face vector;
-        claw_fp = vectors_append(claw_fp,fpv);
-
-        vector f = new face vector;
-        claw_flux = vectors_append(claw_flux,f);
-    }
-
 #if TREE
     for (scalar q in statevars) 
     {
@@ -134,14 +114,12 @@ event plot (i >= 0)
 
 event cleanup(i=end, last)
 {
-    free(claw_fp);
-    free(claw_fm);
-    free(claw_flux);
+    free(statevars);
 }
 
 /* ------------------------ Wave Propagation Algorithm -------------------------------- */
 
-double claw_limiter(double a, double b,int mlim)
+double wpa_limiter(double a, double b,int mlim)
 {
     double wlimiter, r;
     r = b/a;
@@ -195,10 +173,32 @@ double claw_limiter(double a, double b,int mlim)
 }
 
 
+void wpa_initialize(vector **wpa_fm, vector **wpa_fp, vector **wpa_flux)  
+{
+    statevars = list_concat (scalars, (scalar *) vectors);       
 
-//double claw_advance(double dt, double* cflmax, vector* claw_fm,
-//                    vector* claw_fp, vector* claw_flux)
-double claw_advance(double dt, double* cflmax)
+    /* Set flux fields */
+    meqn = list_len(statevars);
+
+    *wpa_fm = NULL;
+    *wpa_fp = NULL;
+    *wpa_flux = NULL;
+    for(int m = 0; m < meqn; m++)
+    {
+        vector fmv = new face vector;
+        *wpa_fm = vectors_append(*wpa_fm,fmv);
+
+        vector fpv = new face vector;
+        *wpa_fp = vectors_append(*wpa_fp,fpv);
+
+        vector f = new face vector;
+        *wpa_flux = vectors_append(*wpa_flux,f);
+    }
+}
+
+double wpa_advance(double dt, double* cflmax, vector* wpa_fm,
+                    vector* wpa_fp, vector* wpa_flux)
+//double wpa_advance(double dt, double* cflmax)
 {
     double flux[meqn];
     double waves[meqn*mwaves];    /* waves at interface I */
@@ -235,7 +235,7 @@ double claw_advance(double dt, double* cflmax)
             m++;
         }
 
-        claw_rp1(meqn, mwaves, ql, qr, waves, speeds, amdq, apdq, flux); 
+        wpa_rp1(meqn, mwaves, ql, qr, waves, speeds, amdq, apdq, flux); 
 
         /* Get new time step for next step */
         for(int mw = 0; mw < mwaves; mw++)
@@ -257,7 +257,7 @@ double claw_advance(double dt, double* cflmax)
         vector f;
 
         m = 0;
-        for (fm,fp,f in claw_fm,claw_fp,claw_flux) 
+        for (fm,fp,f in wpa_fm,wpa_fp,wpa_flux) 
         {
             fm.x[] = amdq[m];                
             fp.x[] = -apdq[m]; 
@@ -311,8 +311,8 @@ double claw_advance(double dt, double* cflmax)
             }
 
             /* Get left and right waves so we can do limiting "in place" */
-            claw_rp1(meqn, mwaves, qm2, qm1, wavesl, s, am, ap,flx);                            
-            claw_rp1(meqn, mwaves, q0,  qp1, wavesr, s, am, ap,flx);                
+            wpa_rp1(meqn, mwaves, qm2, qm1, wavesl, s, am, ap,flx);                            
+            wpa_rp1(meqn, mwaves, q0,  qp1, wavesr, s, am, ap,flx);                
 
 
             /* -------------- COMPUTE LIMITED SECOND ORDER CORRECTIONS ---------------- */
@@ -337,9 +337,9 @@ double claw_advance(double dt, double* cflmax)
                 else
                 {                
                     if (speeds[mw] >= 0)
-                        wlimiter[mw] = claw_limiter(w2,dl,mthlim[mw]);
+                        wlimiter[mw] = wpa_limiter(w2,dl,mthlim[mw]);
                     else if (speeds[mw] < 0)
-                        wlimiter[mw] = claw_limiter(w2,dr,mthlim[mw]);
+                        wlimiter[mw] = wpa_limiter(w2,dr,mthlim[mw]);
                 }
             }
 
@@ -360,7 +360,7 @@ double claw_advance(double dt, double* cflmax)
 
             m = 0;
             vector f;
-            for (fm,fp,f in claw_fm,claw_fp,claw_flux) 
+            for (fm,fp,f in wpa_fm,wpa_fp,wpa_flux) 
             {
                 fm.x[] += 0.5*cqxx[m];
                 fp.x[] += 0.5*cqxx[m];   
@@ -373,9 +373,9 @@ double claw_advance(double dt, double* cflmax)
 
     }  /* End of foreach () */  
 
-    boundary_flux(claw_fp);
-    boundary_flux(claw_fm);
-    boundary_flux(claw_flux);
+    boundary_flux(wpa_fp);
+    boundary_flux(wpa_fm);
+    boundary_flux(wpa_flux);
 
     if (dt_fixed < DT)
     {
@@ -391,14 +391,14 @@ double claw_advance(double dt, double* cflmax)
 
 #if CONSERVATION_LAW
         vector f;
-        for (f,q in claw_flux, statevars) 
+        for (f,q in wpa_flux, statevars) 
         {
             q[] += -dtdx*(f.x[1] - f.x[]);
         }
 #else    
         vector fp;
         vector fm;
-        for (fp, fm, q in claw_fp, claw_fm, statevars) 
+        for (fp, fm, q in wpa_fp, wpa_fm, statevars) 
         {
             q[] += -dtdx*(fm.x[1] - fp.x[]);  
         }
@@ -407,6 +407,14 @@ double claw_advance(double dt, double* cflmax)
 
     return dtnew;
 }
+
+void wpa_cleanup(vector **wpa_fm, vector **wpa_fp, vector **wpa_flux)  
+{
+    free(*wpa_fp);
+    free(*wpa_fm);
+    free(*wpa_flux);    
+}
+
 
 void run()
 {
@@ -417,36 +425,18 @@ void run()
     double dtnew;
 
     /* Set up global variables */
-#if 0    
-    statevars = list_concat (scalars, (scalar *) vectors);       
-    meqn = list_len(statevars);
+    vector *wpa_fp;
+    vector *wpa_fm;
+    vector *wpa_flux;
 
-    /* Set up flux and flucuations */
-    vector *claw_fp = NULL;
-    vector *claw_fm = NULL;
-    vector *claw_flux = NULL;
-    for(int m = 0; m < meqn; m++)
-    {
-        vector fmv = new face vector;
-        claw_fm = vectors_append(claw_fm,fmv);
-
-        vector fpv = new face vector;
-        claw_fp = vectors_append(claw_fp,fpv);
-
-        vector f = new face vector;
-        claw_flux = vectors_append(claw_flux,f);
-    }
-#endif    
+    wpa_initialize(&wpa_fm, &wpa_fp, &wpa_flux);
 
     /* Events are processed first, followed by statements in the while loop */
     perf.nc = perf.tnc = 0;
     perf.gt = timer_start();
     while (events (true)) 
     {
-        //dtnew = claw_advance(dt, &cflmax, claw_fm, claw_fp, claw_flux);
-        dtnew = claw_advance(dt,&cflmax);
-        printf("cflmax = %g\n",cflmax);
-        fflush(stdout);
+        dtnew = wpa_advance(dt, &cflmax, wpa_fm, wpa_fp, wpa_flux);
         if (cflmax > 1) 
         {
             printf("CLF exceeds 1; cflmax = %g\n",cflmax);
@@ -460,11 +450,7 @@ void run()
     }
     timer_print (perf.gt, iter, perf.tnc);
 
-#if 0
-    free(claw_fp);
-    free(claw_fp);
-    free(claw_flux);
-#endif    
+    wpa_cleanup(&wpa_fm, &wpa_fp, &wpa_flux);
 
     free_grid();
 }
