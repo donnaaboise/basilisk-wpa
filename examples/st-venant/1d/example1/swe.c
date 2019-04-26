@@ -59,7 +59,7 @@ event init (i = 0)
         h[] = 1.0 + a*(fabs(x) < b);
         hu.x[] = 0;
     }
-    dt_initial = 0.1047505286036417;   /* initial guess at time step */    
+    dt_initial = 0.1047505286036417;   /* to get CFL= 0.9 on first step */
 }
 
 #if 0

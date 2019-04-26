@@ -24,7 +24,7 @@ fprintf('%20s = %d\n','length(AMRClaw)',length(q));
 fprintf('\n');
 
 lh_list = [hclaw];
-lh_str = {'WPA (uniform)'};
+lh_str = {'WPA (AMRCLAW)'};
 
 if plot_wpa
     fname = sprintf('swe/t-%d',Frame);
