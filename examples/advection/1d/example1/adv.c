@@ -45,7 +45,7 @@ event defaults(i=0)
 {
     dt = 1e-4;
     dt_fixed = DT;
-    claw_rp1 = rp1_adv;
+    wpa_rp1 = rp1_adv;
 }
 
 
