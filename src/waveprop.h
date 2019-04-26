@@ -3,7 +3,6 @@
 /* ----------------------------- Defined by the user ---------------------------------- */
 extern scalar* scalars;
 extern vector* vectors;
-scalar *statevars = NULL;
 
 /* Number of waves in system;  usually == number of equations, but not always */
 extern int mwaves;
@@ -26,7 +25,7 @@ extern vector *aux;
 
 /* These here are a hack and should be set so the user can change them */
 #define SECOND_ORDER 1
-#define CONSERVATION_LAW 0
+#define CONSERVATION_LAW 1
 
 /* ------------------ Variables defined by WPA and referenced elsewhere ----------------- */
 int Frame = 0; /* Used by plotting */
@@ -43,12 +42,13 @@ wpa_rp1_t wpa_rp1;   /* riemann solver */
 
 //static int meqn;
 
+static scalar *statevars = NULL;
+static double dt;
 
 /* ------------------------- Used by Basilisk and set here ---------------------------- */
 /* Needed to get two layers of ghost cells at physical boundary */
 #define BGHOSTS 2
 
-static double dt;
 
 /* ---------------------------------- Events  ----------------------------------------- */
 
@@ -79,7 +79,6 @@ event init (i = 0)
     }
 
     dt = dt_initial;
-
     boundary (statevars);
 }
 
@@ -451,17 +450,22 @@ void run()
     perf.gt = timer_start();
     while (events (true)) 
     {
-        dtnew = dtnext(wpa_advance(dt, &cflmax, wpa_fm, wpa_fp, wpa_flux));
+        dtnew = wpa_advance(dt, &cflmax, wpa_fm, wpa_fp, wpa_flux);
         if (cflmax > 1) 
         {
             printf("CLF exceeds 1; cflmax = %g\n",cflmax);
-        }        
-        //t += dt;
-        //dt = dtnext(dtnew);  /* Updates tnext with new dt. */
-
-
+        }    
+        if (dt_fixed)
+        {
+            dt = dt_initial;  /* Fixed time step */
+            t += dt;
+        }    
+        else
+        {
+            dt = dtnext(dtnew);
+            t = tnext;
+        }
         iter = inext;
-        t = tnext;    
     }
     timer_print (perf.gt, iter, perf.tnc);
 
