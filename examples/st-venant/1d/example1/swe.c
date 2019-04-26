@@ -1,6 +1,5 @@
 //#include "grid/multigrid1D.h"
 #include "grid/bitree.h"
-//#include "utils.h"   /* Needed for DT */
 
 #include "waveprop.h"
 
@@ -16,6 +15,10 @@ int limiters[2] = {1,1}, *mthlim = limiters;
 
 bool dt_fixed = false;
 double dt_initial = 1e-3;
+
+bool conservation_law = true;
+int order = 2;
+
 
 
 vector *aux = NULL;
@@ -45,11 +48,6 @@ int main()
     N = 1 << MINLEVEL;
     run();
 }
-
-event defaults(i=0)
-{
-}
-
 
 event init (i = 0) 
 {

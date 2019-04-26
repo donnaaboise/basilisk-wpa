@@ -21,9 +21,12 @@ extern int matlab_out;
 extern int maux;
 extern vector *aux;
 
+extern int order; 
+extern bool conservation_law;
+
 /* -------------------------- DEFS defined by WPA and used here ----------------------- */
 
-/* These here are a hack and should be set so the user can change them */
+/* This is a hack and should be set so the user can change them */
 #define SECOND_ORDER 1
 #define CONSERVATION_LAW 1
 
@@ -55,6 +58,8 @@ static double dt;
 event defaults (i = 0)
 {
     dt_initial = DT;
+    conservation_law = true;
+    order = 2;
 #if TREE
     for (scalar q in statevars) 
     {
@@ -191,7 +196,6 @@ double wpa_limiter(double a, double b,int mlim)
 void wpa_initialize(vector **wpa_fm, vector **wpa_fp, vector **wpa_flux)  
 {
     statevars = list_concat (scalars, (scalar *) vectors);       
-
     int meqn = list_len(statevars);
 
     *wpa_fm = NULL;
@@ -282,15 +286,7 @@ double wpa_advance(double dt, double* cflmax, vector* wpa_fm,
         }
 
 /* --------------------------- SECOND ORDER CORRECTIONS ------------------------------- */
-#if SECOND_ORDER            
-    /* Compare waves at face I to waves at face I+1 and I-1.  Store norm of 
-       wave(I), and projection of wave(I+1) onto wave(I).  These stored values
-       will be used below in wave limiting 
-
-       We take advantage of the fact that the Basilisk stencil has width 5 (2 ghost
-       cells in each direction). 
-       */
-        
+        if (order == 2)
         {
             /* None of these are saved */
             double wavesl[meqn*mwaves];   
@@ -383,9 +379,6 @@ double wpa_advance(double dt, double* cflmax, vector* wpa_fm,
                 m++;
             }  
         }   /* End of second order scope */
-#endif   
-/* ----------------------- END OF SECOND ORDER CORRECTIONS ---------------------------- */
-
     }  /* End of foreach () */  
 
     boundary_flux(wpa_fp);
@@ -397,27 +390,25 @@ double wpa_advance(double dt, double* cflmax, vector* wpa_fm,
         dtnew = dt_initial;
     }
 
-    /* Update solution */
-
+    /* ------------------------------ Update solution --------------------------------- */
     foreach()
     {
         double dtdx = dt/Delta;
         scalar q;
 
-#if CONSERVATION_LAW
-        vector f;
-        for (f,q in wpa_flux, statevars) 
-        {
-            q[] += -dtdx*(f.x[1] - f.x[]);
+        if (conservation_law)
+        {            
+            vector f;
+            for (f,q in wpa_flux, statevars) 
+                q[] += -dtdx*(f.x[1] - f.x[]);
         }
-#else    
-        vector fp;
-        vector fm;
-        for (fp, fm, q in wpa_fp, wpa_fm, statevars) 
+        else
         {
-            q[] += -dtdx*(fm.x[1] - fp.x[]);  
+            vector fp;
+            vector fm;
+            for (fp, fm, q in wpa_fp, wpa_fm, statevars) 
+                q[] += -dtdx*(fm.x[1] - fp.x[]);  
         }
-#endif        
     }
     return dtnew;
 }
