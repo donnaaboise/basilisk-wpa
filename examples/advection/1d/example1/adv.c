@@ -11,7 +11,9 @@ scalar q[];
 scalar *scalars = {q};
 vector *vectors = NULL;
 
-double dt_fixed;
+bool dt_fixed = false;
+
+double dt_initial;
 
 int mwaves = 1;
 
@@ -41,16 +43,11 @@ int main()
     run();
 }
 
-event defaults(i=0)
-{
-    dt = 1e-4;
-    dt_fixed = DT;
-    wpa_rp1 = rp1_adv;
-}
-
-
 event init (i = 0) 
 {
+    dt_initial = 1e-4;
+    wpa_rp1 = rp1_adv;
+
     foreach() 
     {
         //q[] = exp(-100.0*sq(x));     
@@ -59,7 +56,8 @@ event init (i = 0)
     }
 }
 
-event plot (t+=0.5; t<=4)
+//event plot (t+=0.5; t<=4)
+event plot(i++; i <= 5)
 {
     if (!matlab_out)
     {        
