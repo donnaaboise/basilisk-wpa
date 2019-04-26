@@ -1,28 +1,35 @@
 #include "utils.h"   /* Needed for DT, CFL, among other things */
 
-double dt = 1.;
-
-#define SECOND_ORDER 1
-#define CONSERVATION_LAW 0
-
-/* Stuff defined by the user */
-extern int mwaves;
-extern int *mthlim;
-
+/* ----------------------------- Defined by the user ---------------------------------- */
 extern scalar* scalars;
 extern vector* vectors;
 scalar *statevars = NULL;
 
+/* Number of waves in system;  usually == number of equations, but not always */
+extern int mwaves;
+
+/* Limiters to use for each wave. Should have length mwaves */
+extern int *mthlim;
+
+/* Time stepping */
+extern bool dt_fixed;      /* if true, use dt_initial for all time steps */
+extern double dt_initial;
+
+/* Plotting */
+extern int matlab_out;
+
+/* Not sure what to do with these yet */
 extern int maux;
 extern vector *aux;
 
-extern double dt_fixed;
+/* -------------------------- DEFS defined by WPA and used here ----------------------- */
 
-extern int matlab_out;
+/* These here are a hack and should be set so the user can change them */
+#define SECOND_ORDER 1
+#define CONSERVATION_LAW 0
 
-/* Needed to get two layers of ghost cells at physical boundary */
-#define BGHOSTS 2
-
+/* ------------------ Variables defined by WPA and referenced elsewhere ----------------- */
+int Frame = 0; /* Used by plotting */
 
 typedef void (*wpa_rp1_t)(int meqn, int mwaves, 
                            double *ql, double *qr, 
@@ -32,17 +39,22 @@ typedef void (*wpa_rp1_t)(int meqn, int mwaves,
 wpa_rp1_t wpa_rp1;   /* riemann solver */   
 
 
-/* Values used internally */
+/* ----------------------- Static values used internally ------------------------------ */
 
-static int meqn;
+//static int meqn;
 
 
-int Frame = 0;
+/* ------------------------- Used by Basilisk and set here ---------------------------- */
+/* Needed to get two layers of ghost cells at physical boundary */
+#define BGHOSTS 2
 
-/* ------------------------- User might override these -------------------------------- */
+static double dt;
+
+/* ---------------------------------- Events  ----------------------------------------- */
 
 event defaults (i = 0)
 {
+    dt_initial = DT;
 #if TREE
     for (scalar q in statevars) 
     {
@@ -60,13 +72,15 @@ event setaux(i++)
 event init (i = 0)
 {
     /* User defined-init is called first */
-    if (dt_fixed < DT)
-    {
-        dt = dt_fixed;
+    if (!(dt_initial < DT))
+    {        
+        printf("dt_initial is not set.\n");
+        exit(0);
     }
 
-    boundary (statevars);
+    dt = dt_initial;
 
+    boundary (statevars);
 }
 
 
@@ -80,7 +94,9 @@ event plot (i >= 0)
         sprintf(name,"fort.t%04d",Frame);
         FILE *fp = fopen(name,"w");
         fprintf(fp,"%20.16f %20s\n",t,"time");
-        fprintf(fp,"%10d %20s\n",list_len(statevars),"meqn");
+
+        int meqn = list_len(statevars);
+        fprintf(fp,"%10d %20s\n",meqn,"meqn");
         fprintf(fp,"%10d %20s\n",1,"ngrids");
         fprintf(fp,"%10d %20s\n",maux,"maux");
         fprintf(fp,"%10d %20s\n",dimension,"dim");
@@ -106,7 +122,7 @@ event plot (i >= 0)
         }
         fclose(fp);
     }
-    printf("Output Frame %d at time t = %g\n",Frame, t);
+    printf("Output Frame %d at time t = %12.4e\n",Frame, t);
     printf("\n");
     Frame++;
 }
@@ -177,8 +193,7 @@ void wpa_initialize(vector **wpa_fm, vector **wpa_fp, vector **wpa_flux)
 {
     statevars = list_concat (scalars, (scalar *) vectors);       
 
-    /* Set flux fields */
-    meqn = list_len(statevars);
+    int meqn = list_len(statevars);
 
     *wpa_fm = NULL;
     *wpa_fp = NULL;
@@ -198,8 +213,9 @@ void wpa_initialize(vector **wpa_fm, vector **wpa_fp, vector **wpa_flux)
 
 double wpa_advance(double dt, double* cflmax, vector* wpa_fm,
                     vector* wpa_fp, vector* wpa_flux)
-//double wpa_advance(double dt, double* cflmax)
 {
+    int meqn = list_len(statevars);
+
     double flux[meqn];
     double waves[meqn*mwaves];    /* waves at interface I */
     double amdq[meqn];
@@ -377,9 +393,9 @@ double wpa_advance(double dt, double* cflmax, vector* wpa_fm,
     boundary_flux(wpa_fm);
     boundary_flux(wpa_flux);
 
-    if (dt_fixed < DT)
+    if (dt_fixed)
     {
-        dtnew = dt_fixed;
+        dtnew = dt_initial;
     }
 
     /* Update solution */
@@ -404,7 +420,6 @@ double wpa_advance(double dt, double* cflmax, vector* wpa_fm,
         }
 #endif        
     }
-
     return dtnew;
 }
 
@@ -436,17 +451,17 @@ void run()
     perf.gt = timer_start();
     while (events (true)) 
     {
-        dtnew = wpa_advance(dt, &cflmax, wpa_fm, wpa_fp, wpa_flux);
+        dtnew = dtnext(wpa_advance(dt, &cflmax, wpa_fm, wpa_fp, wpa_flux));
         if (cflmax > 1) 
         {
             printf("CLF exceeds 1; cflmax = %g\n",cflmax);
         }        
-        t += dt;
+        //t += dt;
+        //dt = dtnext(dtnew);  /* Updates tnext with new dt. */
+
 
         iter = inext;
-        //t = tnext;    
-
-        dt = dtnext(dtnew);  /* Updates tnext */
+        t = tnext;    
     }
     timer_print (perf.gt, iter, perf.tnc);
 
