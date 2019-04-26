@@ -1,6 +1,7 @@
 #include "utils.h"   /* Needed for DT, CFL, among other things */
 
 /* ----------------------------- Defined by the user ---------------------------------- */
+/* Lists of state variables */
 extern scalar* scalars;
 extern vector* vectors;
 
@@ -38,18 +39,20 @@ typedef void (*wpa_rp1_t)(int meqn, int mwaves,
                            double *waves, double *speeds, 
                            double *amdq, double *apdq, double *flux);
 
-wpa_rp1_t wpa_rp1;   /* riemann solver */   
+wpa_rp1_t wpa_rp1;   /* Riemann solver */   
 
 
 /* ----------------------- Static values used internally ------------------------------ */
 
-//static int meqn;
-
 static scalar *statevars = NULL;
+static int meqn;
+
 static double dt;
 
 /* ------------------------- Used by Basilisk and set here ---------------------------- */
-/* Needed to get two layers of ghost cells at physical boundary */
+
+/* Needed to get two layers of ghost cells at physical boundary.  Used here so we can do 
+   limiting without storing wave fields first. */
 #define BGHOSTS 2
 
 
@@ -60,6 +63,7 @@ event defaults (i = 0)
     dt_initial = DT;
     conservation_law = true;
     order = 2;
+
 #if TREE
     for (scalar q in statevars) 
     {
@@ -98,8 +102,6 @@ event plot (i >= 0)
         sprintf(name,"fort.t%04d",Frame);
         FILE *fp = fopen(name,"w");
         fprintf(fp,"%20.16f %20s\n",t,"time");
-
-        int meqn = list_len(statevars);
         fprintf(fp,"%10d %20s\n",meqn,"meqn");
         fprintf(fp,"%10d %20s\n",1,"ngrids");
         fprintf(fp,"%10d %20s\n",maux,"maux");
@@ -196,7 +198,7 @@ double wpa_limiter(double a, double b,int mlim)
 void wpa_initialize(vector **wpa_fm, vector **wpa_fp, vector **wpa_flux)  
 {
     statevars = list_concat (scalars, (scalar *) vectors);       
-    int meqn = list_len(statevars);
+    meqn = list_len(statevars);
 
     *wpa_fm = NULL;
     *wpa_fp = NULL;
@@ -214,19 +216,9 @@ void wpa_initialize(vector **wpa_fm, vector **wpa_fp, vector **wpa_flux)
     }
 }
 
-double wpa_advance(double dt, double* cflmax, vector* wpa_fm,
-                    vector* wpa_fp, vector* wpa_flux)
+double wpa_advance(double dt, vector* wpa_fm, vector* wpa_fp, 
+                   vector* wpa_flux, double* cflmax)
 {
-    int meqn = list_len(statevars);
-
-    double flux[meqn];
-    double waves[meqn*mwaves];    /* waves at interface I */
-    double amdq[meqn];
-    double apdq[meqn];
-    double speeds[mwaves];
-
-    double ql[meqn];
-    double qr[meqn];
 
     double dtnew = DT;
     *cflmax = 0;
@@ -235,11 +227,16 @@ double wpa_advance(double dt, double* cflmax, vector* wpa_fm,
 
     foreach_face()
     {
-        int m;   
+        double amdq[meqn];
+        double apdq[meqn];
+        double speeds[mwaves];
+        double flux[meqn];
+        double waves[meqn*mwaves];    /* waves at interface I */
 
-        /* ------------------ CENTERED waves ------------------ */
-        /* These waves are used for the first order update */
-        m = 0;        
+        double ql[meqn];
+        double qr[meqn];
+
+        int m = 0;        
         for (scalar q in scalars) 
         {
             qr[m] = q[0];
@@ -285,7 +282,7 @@ double wpa_advance(double dt, double* cflmax, vector* wpa_fm,
             m++;
         }
 
-/* --------------------------- SECOND ORDER CORRECTIONS ------------------------------- */
+        /* --------------------- Second order corrections ----------------------------- */
         if (order == 2)
         {
             /* None of these are saved */
@@ -302,7 +299,7 @@ double wpa_advance(double dt, double* cflmax, vector* wpa_fm,
             double qp1[meqn];
 
 
-            /* -------------------------- RIGHT AND LEFT waves -------------------------*/
+            /* Right and left waves */
             m = 0;
             for (scalar q in scalars) 
             {
@@ -326,12 +323,12 @@ double wpa_advance(double dt, double* cflmax, vector* wpa_fm,
             wpa_rp1(meqn, mwaves, q0,  qp1, wavesr, s, am, ap,flx);                
 
 
-            /* -------------- COMPUTE LIMITED SECOND ORDER CORRECTIONS ---------------- */
+            /* -------------- Compute limited second order corrections ---------------- */
             double wlimiter[mwaves];
             for(int mw = 0; mw < mwaves; mw++) 
             {
                 double w2 = 0;
-                double dr = 0;  /* These are being computed 2-3 times each (:-(( */
+                double dr = 0;  
                 double dl = 0;
                 for (int m = 0; m < meqn; m++)
                 {
@@ -354,7 +351,7 @@ double wpa_advance(double dt, double* cflmax, vector* wpa_fm,
                 }
             }
 
-            /* Use dt passed in as argument (set by user at t=0) */
+            /* Use dt passed in as argument;  dx is mesh width in cell x[0] */
             double dtdx = dt/Delta;
             double cqxx[meqn];
             for(int m = 0; m < meqn; m++)
@@ -364,9 +361,7 @@ double wpa_advance(double dt, double* cflmax, vector* wpa_fm,
             {
                 double cq = fabs(speeds[mw])*(1 - fabs(speeds[mw])*dtdx)*wlimiter[mw];
                 for(int m = 0; m < meqn; m++)
-                {
                     cqxx[m] += cq*waves[m+mw*meqn];
-                }
             }
 
             m = 0;
@@ -375,20 +370,16 @@ double wpa_advance(double dt, double* cflmax, vector* wpa_fm,
             {
                 fm.x[] += 0.5*cqxx[m];
                 fp.x[] += 0.5*cqxx[m];   
-                f.x[]  += 0.5*cqxx[m];  /* Note sign */
+                f.x[]  += 0.5*cqxx[m];  
                 m++;
             }  
-        }   /* End of second order scope */
-    }  /* End of foreach () */  
+        }   /* End of second order corrections */
+    }  /* End of foreach_face () */  
 
+    /* Replace coarse grid fluxes with fine grid fluxes */
     boundary_flux(wpa_fp);
     boundary_flux(wpa_fm);
     boundary_flux(wpa_flux);
-
-    if (dt_fixed)
-    {
-        dtnew = dt_initial;
-    }
 
     /* ------------------------------ Update solution --------------------------------- */
     foreach()
@@ -426,13 +417,12 @@ void run()
     t = 0.;
     iter = 0;
     init_grid (N);  
+
     double cflmax;
     double dtnew;
 
     /* Set up global variables */
-    vector *wpa_fp;
-    vector *wpa_fm;
-    vector *wpa_flux;
+    vector *wpa_fp, *wpa_fm, *wpa_flux;
 
     wpa_initialize(&wpa_fm, &wpa_fp, &wpa_flux);
 
@@ -441,14 +431,15 @@ void run()
     perf.gt = timer_start();
     while (events (true)) 
     {
-        dtnew = wpa_advance(dt, &cflmax, wpa_fm, wpa_fp, wpa_flux);
+        dtnew = wpa_advance(dt, wpa_fm, wpa_fp, wpa_flux,&cflmax);
         if (cflmax > 1) 
         {
+            /* CFL using time step dt */
             printf("CLF exceeds 1; cflmax = %g\n",cflmax);
         }    
         if (dt_fixed)
         {
-            dt = dt_initial;  /* Fixed time step */
+            dt = dt_initial;  
             t += dt;
         }    
         else
