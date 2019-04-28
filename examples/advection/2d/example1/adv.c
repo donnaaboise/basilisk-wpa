@@ -1,11 +1,13 @@
 #include "grid/quadtree.h"  
 
+#include "fractions.h"
 #include "waveprop.h"
 #include "rpn2_adv.h"
 
 scalar q[];
 scalar *scalars = {q};
 vector *vectors = NULL;
+
 
 bool dt_fixed;
 double dt_initial;
@@ -25,6 +27,9 @@ int matlab_out = true;
 #define MINLEVEL 8
 #define MAXLEVEL 10
 
+static double threshold = 1e-4;
+
+
 int main() 
 {
     origin (-1.0,-1.0);
@@ -32,12 +37,15 @@ int main()
 
     CFL = 0.9;
 
-    //periodic (left);        
-    //periodic (bottom);
+    periodic (left);        
+    periodic (bottom);
 
     N = 1 << MINLEVEL;
     run();
 }
+
+
+
 
 event init (i = 0) 
 {
@@ -48,12 +56,25 @@ event init (i = 0)
 
     wpa_rpsolver = rpn2_adv;
 
+#if 0
+    vertex scalar phi[];   
+    foreach_vertex()       
+    {
+        phi[] = 0.5 - sqrt(x*x + y*y);                
+    }
+    boundary ({phi});      
+    fractions (phi, q);    
+#else
     foreach() 
     {
         //q[] = exp(-100.0*sq(x*x + y*y));     
         //q[] = sin(4*pi*x);
         q[] = sqrt(x*x + y*y) <= 0.5;
     }
+#endif    
+    astats s = adapt_wavelet ({q}, (double []){threshold}, maxlevel = MAXLEVEL);
+    while (s.nf > 0)
+        s = adapt_wavelet ({q}, (double []){threshold}, maxlevel = MAXLEVEL);
 }
 
 event images (t += 0.25; t <= 4)
@@ -76,8 +97,9 @@ event plot (t += 0.25; t <= 4)
 
 /* Threshold > 1e-3 */
 #if TREE
-event adapt (i++) {
-  adapt_wavelet ({q}, (double []){1e-3}, maxlevel = MAXLEVEL);
+event adapt (i++) 
+{
+  adapt_wavelet ({q}, (double []){threshold}, maxlevel = MAXLEVEL);
 }
 #endif
 
