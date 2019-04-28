@@ -33,6 +33,8 @@ typedef void (*wpa_rpsolver_t)(int dir, int meqn, int mwaves,
                                double *waves, double *speeds, 
                                double *amdq, double *apdq, double *flux);
 
+void plot_output();
+
 wpa_rpsolver_t wpa_rpsolver;   /* Riemann solver */   
 
 
@@ -84,8 +86,8 @@ event init (i = 0)
     boundary (statevars);
 }
 
-#include "waveprop_output.h"
-
+/* Do plotting here ..  Fix this so we can put the event here and call a function */
+#include "waveprop_output.h" 
 
 event cleanup(i=end, last)
 {
@@ -181,6 +183,7 @@ double wpa_advance(double dt, vector* wpa_fm, vector* wpa_fp,
     int dir = 0;
     foreach_dimension()
     {
+        /* Sweep over x, y, z dimensions using dim-split algorithm */
         foreach_face(x)
         {
             double amdq[meqn];
@@ -206,6 +209,10 @@ double wpa_advance(double dt, vector* wpa_fm, vector* wpa_fp,
                 ql[m] = w.x[-1];
                 m++;
             }
+
+            /* In case the user doesn't define a flux */
+            for(int m = 0; m < meqn; m++)
+                flux[m] = 0;
 
             wpa_rpsolver(dir,meqn, mwaves, ql, qr, waves, speeds, amdq, apdq, flux); 
 
@@ -256,7 +263,7 @@ double wpa_advance(double dt, vector* wpa_fm, vector* wpa_fp,
 
 
                 /* Right and left waves */
-                m = 0;
+                int m = 0;
                 for (scalar q in scalars) 
                 {
                     qm2[m] = q[-2];
@@ -291,7 +298,7 @@ double wpa_advance(double dt, vector* wpa_fm, vector* wpa_fp,
                         double w = waves[m + mw*meqn];
                         double wr = wavesr[m + mw*meqn];
                         double wl = wavesl[m + mw*meqn];
-                        w2  += w*w;
+                        w2 += w*w;
                         dr += w*wr;
                         dl += w*wl;
                     }
@@ -389,7 +396,7 @@ void run()
     perf.gt = timer_start();
     while (events (true)) 
     {
-        dtnew = wpa_advance(dt, wpa_fm, wpa_fp, wpa_flux,&cflmax);
+        dtnew = wpa_advance(dt, wpa_fm, wpa_fp, wpa_flux, &cflmax);
         if (cflmax > 1) 
         {
             /* CFL using time step dt */

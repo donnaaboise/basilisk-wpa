@@ -50,7 +50,7 @@ event plot (i >= 0)
 
         /* Write out face and vertex data for Matlab 'patch' */
         FILE *fpv, *fpf, *fpc;
-        
+
         sprintf(name,"fort.v%04d",Frame);
         fpv = fopen(name,"wb");
 
@@ -75,7 +75,6 @@ event plot (i >= 0)
                 f[i]        = i + 5*n + 1;
                 vp[2*i]     = xlow + h*xpadd[i];
                 vp[2*i + 1] = ylow + h*ypadd[i];
-
             }
             fwrite(vp,sizeof(double),10,fpv);
             fwrite(f,sizeof(int),5,fpf);
