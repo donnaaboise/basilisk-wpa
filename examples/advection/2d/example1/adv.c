@@ -1,8 +1,6 @@
-//#include "grid/multigrid.h"
 #include "grid/quadtree.h"  
 
 #include "waveprop.h"
-
 #include "rpn2_adv.h"
 
 scalar q[];
@@ -22,13 +20,10 @@ int limiters[1] = {3}, *mthlim = limiters;
 int maux;
 vector *aux;
 
-#if TREE
 int matlab_out = true;
-#else
-int matlab_out = true;
-#endif
 
-#define MAXLEVEL 8
+#define MINLEVEL 8
+#define MAXLEVEL 10
 
 int main() 
 {
@@ -37,10 +32,10 @@ int main()
 
     CFL = 0.9;
 
-    periodic (left);        
-    periodic (bottom);
+    //periodic (left);        
+    //periodic (bottom);
 
-    N = 1 << MAXLEVEL;
+    N = 1 << MINLEVEL;
     run();
 }
 
@@ -73,16 +68,11 @@ event images (t += 0.25; t <= 4)
 
 event plot (t += 0.25; t <= 4)
 {
+#if 0    
   static FILE * fp = fopen ("out.ppm", "w");
   output_ppm (q, fp, min = 0, max = MAXLEVEL);
+#endif  
 }
-
-#if 0
-event plot(i++; i <= 10)
-{
-    /* Call matlab plotting */
-}
-#endif
 
 /* Threshold > 1e-3 */
 #if TREE

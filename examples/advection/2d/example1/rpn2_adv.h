@@ -2,9 +2,7 @@
    scalar advection problem. */
 
 
-double ubar[2] = {1,0.5};  /* U = (0.5, 0.5) */
-
-
+static double ubar[2] = {1,0.5};  
 
 void rpn2_adv(int dir, int meqn, int mwaves, double *ql, double *qr, double *waves, 
               double *speeds, double *amdq, double *apdq, double* flux)

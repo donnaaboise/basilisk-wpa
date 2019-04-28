@@ -2,7 +2,7 @@ s = 1e-2;
 axis([-1-s 1+s -1-s 1+s])
 daspect([1 1 1]);
 
-set(pout,'edgecolor','none');
+% set(pout,'edgecolor','none');
 
 colormap(parula);
 caxis([-1,1]);
