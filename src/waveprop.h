@@ -2,7 +2,7 @@
 
 /* ----------------------------- Defined by the user ---------------------------------- */
 /* Lists of state variables */
-extern scalar* scalars;
+extern scalar* scalars;     
 extern vector* vectors;
 
 /* Number of waves in system;  usually == number of equations, but not always */
@@ -22,24 +22,18 @@ extern int matlab_out;
 extern int maux;
 extern vector *aux;
 
-extern int order; 
-extern bool conservation_law;
-
-/* -------------------------- DEFS defined by WPA and used here ----------------------- */
-
-/* This is a hack and should be set so the user can change them */
-#define SECOND_ORDER 1
-#define CONSERVATION_LAW 1
+extern int order;               /* 1 or 2 */
+extern bool conservation_law;   /* true or false */
 
 /* ------------------ Variables defined by WPA and referenced elsewhere ----------------- */
 int Frame = 0; /* Used by plotting */
 
-typedef void (*wpa_rp1_t)(int meqn, int mwaves, 
-                           double *ql, double *qr, 
-                           double *waves, double *speeds, 
-                           double *amdq, double *apdq, double *flux);
+typedef void (*wpa_rpsolver_t)(int dir, int meqn, int mwaves, 
+                               double *ql, double *qr, 
+                               double *waves, double *speeds, 
+                               double *amdq, double *apdq, double *flux);
 
-wpa_rp1_t wpa_rp1;   /* Riemann solver */   
+wpa_rpsolver_t wpa_rpsolver;   /* Riemann solver */   
 
 
 /* ----------------------- Static values used internally ------------------------------ */
@@ -54,7 +48,6 @@ static double dt;
 /* Needed to get two layers of ghost cells at physical boundary.  Used here so we can do 
    limiting without storing wave fields first. */
 #define BGHOSTS 2
-
 
 /* ---------------------------------- Events  ----------------------------------------- */
 
@@ -91,47 +84,7 @@ event init (i = 0)
     boundary (statevars);
 }
 
-
-event plot (i >= 0)
-{
-    if (matlab_out)
-    {        
-        char name[80];
-
-        /* Write header file */
-        sprintf(name,"fort.t%04d",Frame);
-        FILE *fp = fopen(name,"w");
-        fprintf(fp,"%20.16f %20s\n",t,"time");
-        fprintf(fp,"%10d %20s\n",meqn,"meqn");
-        fprintf(fp,"%10d %20s\n",1,"ngrids");
-        fprintf(fp,"%10d %20s\n",maux,"maux");
-        fprintf(fp,"%10d %20s\n",dimension,"dim");
-        fclose(fp);
-
-        /* Write data file */
-        sprintf(name,"fort.q%04d",Frame);
-        fp = fopen(name,"w");
-        fprintf(fp,"%10d %20s\n",1,"grid_number");
-        fprintf(fp,"%10d %20s\n",1,"AMR_level");
-        fprintf(fp,"%10d %20s\n",N,"mx");
-        fprintf(fp,"%24.16f %20s\n",X0,"xlow");  /* xlow */
-
-        /* Assume uniform Cartesian grid */
-        double dx = L0/N;
-        fprintf(fp,"%24.16f %20s\n",dx,"dx");
-        fprintf(fp,"\n");
-        foreach()
-        {
-            for(scalar s in statevars)
-                fprintf(fp,"%24.16e",s[]);
-            fprintf(fp,"\n");
-        }
-        fclose(fp);
-    }
-    printf("Output Frame %d at time t = %12.4e\n",Frame, t);
-    printf("\n");
-    Frame++;
-}
+#include "waveprop_output.h"
 
 
 event cleanup(i=end, last)
@@ -225,182 +178,187 @@ double wpa_advance(double dt, vector* wpa_fm, vector* wpa_fp,
 
     boundary(statevars);
 
-    foreach_face()
+    int dir = 0;
+    foreach_dimension()
     {
-        double amdq[meqn];
-        double apdq[meqn];
-        double speeds[mwaves];
-        double flux[meqn];
-        double waves[meqn*mwaves];    /* waves at interface I */
-
-        double ql[meqn];
-        double qr[meqn];
-
-        int m = 0;        
-        for (scalar q in scalars) 
+        foreach_face(x)
         {
-            qr[m] = q[0];
-            ql[m] = q[-1];
-            m++;
-        }
+            double amdq[meqn];
+            double apdq[meqn];
+            double speeds[mwaves];
+            double flux[meqn];
+            double waves[meqn*mwaves];    /* waves at interface I */
 
-        for (vector w in vectors) 
-        {
-            qr[m] = w.x[0];
-            ql[m] = w.x[-1];
-            m++;
-        }
+            double ql[meqn];
+            double qr[meqn];
 
-        wpa_rp1(meqn, mwaves, ql, qr, waves, speeds, amdq, apdq, flux); 
-
-        /* Get new time step for next step */
-        for(int mw = 0; mw < mwaves; mw++)
-        {
-            /* Compute next step */
-            double dt_local = CFL*Delta/fabs(speeds[mw]);
-            if (dt_local < dtnew)
-                dtnew = dt_local;
-
-            /* Test current CFL */
-            double cfl = dt*fabs(speeds[mw])/Delta;
-            if (cfl > *cflmax)
-                *cflmax = cfl;
-        } 
-
-        /* First order update */
-        vector fm;
-        vector fp;
-        vector f;
-
-        m = 0;
-        for (fm,fp,f in wpa_fm,wpa_fp,wpa_flux) 
-        {
-            fm.x[] = amdq[m];                
-            fp.x[] = -apdq[m]; 
-
-            f.x[] = flux[m] + fp.x[];   
-            m++;
-        }
-
-        /* --------------------- Second order corrections ----------------------------- */
-        if (order == 2)
-        {
-            /* None of these are saved */
-            double wavesl[meqn*mwaves];   
-            double wavesr[meqn*mwaves];               
-            double s[mwaves]; 
-            double ap[meqn];
-            double am[meqn];
-            double flx[meqn];
-
-            double qm2[meqn];
-            double qm1[meqn];
-            double q0[meqn];
-            double qp1[meqn];
-
-
-            /* Right and left waves */
-            m = 0;
+            int m = 0;        
             for (scalar q in scalars) 
             {
-                qm2[m] = q[-2];
-                qm1[m] = q[-1];
-                q0[m]  = q[0];
-                qp1[m] = q[1];
+                qr[m] = q[0];
+                ql[m] = q[-1];
                 m++;
             }
+
             for (vector w in vectors) 
             {
-                qm2[m] = w.x[-2];
-                qm1[m] = w.x[-1];
-                q0[m]  = w.x[0];
-                qp1[m] = w.x[1];
+                qr[m] = w.x[0];
+                ql[m] = w.x[-1];
                 m++;
             }
 
-            /* Get left and right waves so we can do limiting "in place" */
-            wpa_rp1(meqn, mwaves, qm2, qm1, wavesl, s, am, ap,flx);                            
-            wpa_rp1(meqn, mwaves, q0,  qp1, wavesr, s, am, ap,flx);                
+            wpa_rpsolver(dir,meqn, mwaves, ql, qr, waves, speeds, amdq, apdq, flux); 
 
-
-            /* -------------- Compute limited second order corrections ---------------- */
-            double wlimiter[mwaves];
-            for(int mw = 0; mw < mwaves; mw++) 
-            {
-                double w2 = 0;
-                double dr = 0;  
-                double dl = 0;
-                for (int m = 0; m < meqn; m++)
-                {
-                    double w = waves[m + mw*meqn];
-                    double wr = wavesr[m + mw*meqn];
-                    double wl = wavesl[m + mw*meqn];
-                    w2  += w*w;
-                    dr += w*wr;
-                    dl += w*wl;
-                }
-
-                if (w2 == 0 || mthlim[mw] == 0)
-                    wlimiter[mw] = 1;
-                else
-                {                
-                    if (speeds[mw] >= 0)
-                        wlimiter[mw] = wpa_limiter(w2,dl,mthlim[mw]);
-                    else if (speeds[mw] < 0)
-                        wlimiter[mw] = wpa_limiter(w2,dr,mthlim[mw]);
-                }
-            }
-
-            /* Use dt passed in as argument;  dx is mesh width in cell x[0] */
-            double dtdx = dt/Delta;
-            double cqxx[meqn];
-            for(int m = 0; m < meqn; m++)
-                cqxx[m] = 0;
-
+            /* Get new time step for next step */
             for(int mw = 0; mw < mwaves; mw++)
             {
-                double cq = fabs(speeds[mw])*(1 - fabs(speeds[mw])*dtdx)*wlimiter[mw];
-                for(int m = 0; m < meqn; m++)
-                    cqxx[m] += cq*waves[m+mw*meqn];
-            }
+                /* Compute next step */
+                double dt_local = CFL*Delta/fabs(speeds[mw]);
+                if (dt_local < dtnew)
+                    dtnew = dt_local;
+
+                /* Test current CFL */
+                double cfl = dt*fabs(speeds[mw])/Delta;
+                if (cfl > *cflmax)
+                    *cflmax = cfl;
+            } 
+
+            /* First order update */
+            vector fm;
+            vector fp;
+            vector f;
 
             m = 0;
-            vector f;
             for (fm,fp,f in wpa_fm,wpa_fp,wpa_flux) 
             {
-                fm.x[] += 0.5*cqxx[m];
-                fp.x[] += 0.5*cqxx[m];   
-                f.x[]  += 0.5*cqxx[m];  
+                fm.x[] = amdq[m];                
+                fp.x[] = -apdq[m]; 
+
+                f.x[] = flux[m] + fp.x[];   
                 m++;
-            }  
-        }   /* End of second order corrections */
-    }  /* End of foreach_face () */  
+            }
 
-    /* Replace coarse grid fluxes with fine grid fluxes */
-    boundary_flux(wpa_fp);
-    boundary_flux(wpa_fm);
-    boundary_flux(wpa_flux);
+            /* --------------------- Second order corrections ----------------------------- */
+            if (order == 2)
+            {
+                /* None of these are saved */
+                double wavesl[meqn*mwaves];   
+                double wavesr[meqn*mwaves];               
+                double s[mwaves]; 
+                double ap[meqn];
+                double am[meqn];
+                double flx[meqn];
 
-    /* ------------------------------ Update solution --------------------------------- */
-    foreach()
-    {
-        double dtdx = dt/Delta;
-        scalar q;
+                double qm2[meqn];
+                double qm1[meqn];
+                double q0[meqn];
+                double qp1[meqn];
 
-        if (conservation_law)
-        {            
-            vector f;
-            for (f,q in wpa_flux, statevars) 
-                q[] += -dtdx*(f.x[1] - f.x[]);
-        }
-        else
+
+                /* Right and left waves */
+                m = 0;
+                for (scalar q in scalars) 
+                {
+                    qm2[m] = q[-2];
+                    qm1[m] = q[-1];
+                    q0[m]  = q[0];
+                    qp1[m] = q[1];
+                    m++;
+                }
+                for (vector w in vectors) 
+                {
+                    qm2[m] = w.x[-2];
+                    qm1[m] = w.x[-1];
+                    q0[m]  = w.x[0];
+                    qp1[m] = w.x[1];
+                    m++;
+                }
+
+                /* Get left and right waves so we can do limiting "in place" */
+                wpa_rpsolver(dir,meqn, mwaves, qm2, qm1, wavesl, s, am, ap,flx);                           
+                wpa_rpsolver(dir,meqn, mwaves, q0,  qp1, wavesr, s, am, ap,flx);                
+
+
+                /* -------------- Compute limited second order corrections ---------------- */
+                double wlimiter[mwaves];
+                for(int mw = 0; mw < mwaves; mw++) 
+                {
+                    double w2 = 0;
+                    double dr = 0;  
+                    double dl = 0;
+                    for (int m = 0; m < meqn; m++)
+                    {
+                        double w = waves[m + mw*meqn];
+                        double wr = wavesr[m + mw*meqn];
+                        double wl = wavesl[m + mw*meqn];
+                        w2  += w*w;
+                        dr += w*wr;
+                        dl += w*wl;
+                    }
+
+                    if (w2 == 0 || mthlim[mw] == 0)
+                        wlimiter[mw] = 1;
+                    else
+                    {                
+                        if (speeds[mw] >= 0)
+                            wlimiter[mw] = wpa_limiter(w2,dl,mthlim[mw]);
+                        else if (speeds[mw] < 0)
+                            wlimiter[mw] = wpa_limiter(w2,dr,mthlim[mw]);
+                    }
+                }
+
+                /* Use dt passed in as argument;  dx is mesh width in cell x[0] */
+                double dtdx = dt/Delta;
+                double cqxx[meqn];
+                for(int m = 0; m < meqn; m++)
+                    cqxx[m] = 0;
+
+                for(int mw = 0; mw < mwaves; mw++)
+                {
+                    double cq = fabs(speeds[mw])*(1 - fabs(speeds[mw])*dtdx)*wlimiter[mw];
+                    for(int m = 0; m < meqn; m++)
+                        cqxx[m] += cq*waves[m+mw*meqn];
+                }
+
+                m = 0;
+                vector f;
+                for (fm,fp,f in wpa_fm,wpa_fp,wpa_flux) 
+                {
+                    fm.x[] += 0.5*cqxx[m];
+                    fp.x[] += 0.5*cqxx[m];   
+                    f.x[]  += 0.5*cqxx[m];  
+                    m++;
+                }  
+            }   /* End of second order corrections */
+        } /* end of foreach_face */
+
+        /* Replace coarse grid fluxes with fine grid fluxes */
+        boundary_flux(wpa_fp);
+        boundary_flux(wpa_fm);
+        boundary_flux(wpa_flux);
+
+        /* ------------------------------ Update solution --------------------------------- */
+        foreach()
         {
-            vector fp;
-            vector fm;
-            for (fp, fm, q in wpa_fp, wpa_fm, statevars) 
-                q[] += -dtdx*(fm.x[1] - fp.x[]);  
+            double dtdx = dt/Delta;
+            scalar q;
+
+            if (conservation_law)
+            {            
+                vector f;
+                for (f,q in wpa_flux, statevars) 
+                    q[] += -dtdx*(f.x[1] - f.x[]);
+            }
+            else
+            {
+                vector fp;
+                vector fm;
+                for (fp, fm, q in wpa_fp, wpa_fm, statevars) 
+                    q[] += -dtdx*(fm.x[1] - fp.x[]);  
+            }
         }
-    }
+        dir++;
+    } /* End of dimension loop */
     return dtnew;
 }
 
@@ -418,7 +376,7 @@ void run()
     iter = 0;
     init_grid (N);  
 
-    double cflmax;
+    double cflmax = 0;
     double dtnew;
 
     /* Set up global variables */
