@@ -79,10 +79,12 @@ end
 lh = legend(lh_list,lh_str,'location','northeast');
 set(lh,'fontsize',16);
 
+% fprintf('q[1] = %24.16f\n',q(1));
+
 title(sprintf('t = %g',t),'fontsize',16);
 
 if Frame == 4 && shift_t
-    axis([54, 64, -0.002, 0.05])
+    axis([54, 64, -0.002, 0.03])
 end
 
 shg

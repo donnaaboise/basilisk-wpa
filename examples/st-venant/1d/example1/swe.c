@@ -1,5 +1,5 @@
-//#include "grid/multigrid1D.h"
-#include "grid/bitree.h"
+#include "grid/multigrid1D.h"
+//#include "grid/bitree.h"
 
 #include "waveprop.h"
 
@@ -13,12 +13,12 @@ vector *vectors = {hu};
 int mwaves = 2;
 int limiters[2] = {1,1}, *mthlim = limiters;
 
-bool dt_fixed = false;
-double dt_initial = 1e-3;
+/* Set these in 'init' */
+bool dt_fixed;
+double dt_initial;
 
-bool conservation_law = true;
-int order = 2;
-
+bool conservation_law;
+int order;
 
 
 vector *aux = NULL;
@@ -52,6 +52,10 @@ int main()
 event init (i = 0) 
 {
     wpa_rp1 = rp1_swe;   
+    dt_fixed = false;
+    conservation_law = true;
+    order = 2;
+
     foreach() 
     {
         h[] = 1.0 + a*(fabs(x) < b);
@@ -84,17 +88,17 @@ event plot (t = {0, 35, 90, 700, 2000})
 }
 
 
-event conservation_check(t = {0,2000})
+event conservation_check (i++; i <= 100)
 {
     double sum = 0;
     foreach()
-    {
         sum += Delta*h[];
-    }
+
+    /* Save initial mass for comparison */
     if (i == 0)
         sum0 = sum;
 
-    printf("t = %20.16f; mass = %24.16e; diff = %24.16e\n",t, sum, fabs(sum0-sum));
+    printf("t = %16.8e; mass = %24.16e; diff = %24.16e\n",t, sum, fabs(sum0-sum));
     fflush(stdout);
 }
 
