@@ -10,6 +10,7 @@ St. Venant using Wave Propagation Algorithm
 scalar h[];
 vector hu[];
 scalar *scalars = {h,hu};
+vector *vectors = NULL;
 
 
 int mwaves = 3;
@@ -96,6 +97,7 @@ event logfile (i++)
   fprintf (stderr, "%g %g\n", t, normf(hu.x).max);
 }
 
+#if 1
 event movie (i += 10)
 {
   output_ppm (h, linear = true, file = "h.mp4", n = 512);
@@ -104,8 +106,9 @@ event movie (i += 10)
       l[] = level;
   output_ppm (l, file = "level.mp4", min = MINLEVEL, max = MAXLEVEL, n = 512);
 }
+#endif
 
-event conservation_check (t += 1)
+event conservation_check (i +=1; i <= 200)
 {
     double sum[3] = {0,0,0};
     foreach()
