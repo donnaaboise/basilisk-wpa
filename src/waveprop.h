@@ -86,15 +86,33 @@ event init (i = 0)
     boundary (statevars);
 }
 
-/* Do plotting here ..  Fix this so we can put the event here and call a function */
-#include "waveprop_output.h" 
-
 event cleanup(i=end, last)
 {
     free(statevars);
 }
 
 /* ------------------------ Wave Propagation Algorithm -------------------------------- */
+
+void wpa_initialize(vector **wpa_fm, vector **wpa_fp, vector **wpa_flux)  
+{
+
+    statevars = list_concat (scalars, (scalar *) vectors);       
+    meqn = list_len(statevars);
+    *wpa_fm = NULL;
+    *wpa_fp = NULL;
+    *wpa_flux = NULL;
+    for(int m = 0; m < meqn; m++)
+    {
+        vector fmv = new face vector;
+        *wpa_fm = vectors_append(*wpa_fm,fmv);
+
+        vector fpv = new face vector;
+        *wpa_fp = vectors_append(*wpa_fp,fpv);
+
+        vector f = new face vector;
+        *wpa_flux = vectors_append(*wpa_flux,f);
+    }
+}
 
 double wpa_limiter(double a, double b,int mlim)
 {
@@ -137,7 +155,7 @@ double wpa_limiter(double a, double b,int mlim)
 
         /* Generalized minmod */
         case 6:
-            th = 2;
+            th = 1.3;
             wlimiter = max(0., min(th*r,min((1+r)/2.,th)));
             break;
 
@@ -149,27 +167,6 @@ double wpa_limiter(double a, double b,int mlim)
     return wlimiter; 
 }
 
-
-void wpa_initialize(vector **wpa_fm, vector **wpa_fp, vector **wpa_flux)  
-{
-    statevars = list_concat (scalars, (scalar *) vectors);       
-    meqn = list_len(statevars);
-
-    *wpa_fm = NULL;
-    *wpa_fp = NULL;
-    *wpa_flux = NULL;
-    for(int m = 0; m < meqn; m++)
-    {
-        vector fmv = new face vector;
-        *wpa_fm = vectors_append(*wpa_fm,fmv);
-
-        vector fpv = new face vector;
-        *wpa_fp = vectors_append(*wpa_fp,fpv);
-
-        vector f = new face vector;
-        *wpa_flux = vectors_append(*wpa_flux,f);
-    }
-}
 
 double wpa_advance(double dt, vector* wpa_fm, vector* wpa_fp, 
                    vector* wpa_flux, double* cflmax)
@@ -210,6 +207,8 @@ double wpa_advance(double dt, vector* wpa_fm, vector* wpa_fp,
                 m++;
             }
 
+            /* Check s.v.x.i == s.i   --> is x component */
+
             /* In case the user doesn't define a flux */
             for(int m = 0; m < meqn; m++)
                 flux[m] = 0;
@@ -220,10 +219,13 @@ double wpa_advance(double dt, vector* wpa_fm, vector* wpa_fp,
             for(int mw = 0; mw < mwaves; mw++)
             {
                 /* Compute next step */
-                double dt_local = CFL*Delta/fabs(speeds[mw]);
+                double s = fabs(speeds[mw]);
+                if (s == 0)
+                    continue;  /* speed of 0 does not contrain the time step */
+                double dt_local = CFL*Delta/s;
                 if (dt_local < dtnew)
-                    dtnew = dt_local;
-
+                    dtnew = dt_local;  
+                                  
                 /* Test current CFL */
                 double cfl = dt*fabs(speeds[mw])/Delta;
                 if (cfl > *cflmax)
@@ -270,6 +272,7 @@ double wpa_advance(double dt, vector* wpa_fm, vector* wpa_fp,
                     qm1[m] = q[-1];
                     q0[m]  = q[0];
                     qp1[m] = q[1];
+
                     m++;
                 }
                 for (vector w in vectors) 
@@ -281,7 +284,8 @@ double wpa_advance(double dt, vector* wpa_fm, vector* wpa_fp,
                     m++;
                 }
 
-                /* Get left and right waves so we can do limiting "in place" */
+                /* Get left and right waves so we can do limiting in place */
+
                 wpa_rpsolver(dir,meqn, mwaves, qm2, qm1, wavesl, s, am, ap,flx);                           
                 wpa_rpsolver(dir,meqn, mwaves, q0,  qp1, wavesr, s, am, ap,flx);                
 
@@ -385,11 +389,13 @@ void run()
 
     double cflmax = 0;
     double dtnew;
+    double dt_curr;
 
     /* Set up global variables */
     vector *wpa_fp, *wpa_fm, *wpa_flux;
 
     wpa_initialize(&wpa_fm, &wpa_fp, &wpa_flux);
+
 
     /* Events are processed first, followed by statements in the while loop */
     perf.nc = perf.tnc = 0;
@@ -397,22 +403,26 @@ void run()
     while (events (true)) 
     {
         dtnew = wpa_advance(dt, wpa_fm, wpa_fp, wpa_flux, &cflmax);
+        dt_curr = dt;
+        t += dt_curr; /* Use step just taken */        
+
         if (cflmax > 1) 
         {
             /* CFL using time step dt */
-            printf("CLF exceeds 1; cflmax = %g\n",cflmax);
+            printf("CFL exceeds 1; cflmax = %g\n",cflmax);
         }    
         if (dt_fixed)
         {
             dt = dt_initial;  
-            t += dt;
         }    
         else
         {
-            dt = dtnext(dtnew);
-            t = tnext;
+            dt = dtnext(dtnew);            
+            //t = tnext;  This is t += dtnew;  we want t += dt (above). 
         }
         iter = inext;
+        fprintf(stdout,"Step %6d : dt = %8.4e; cflmax = %8.4f; Time = %12.4f\n",
+                iter, dt_curr, cflmax,t);
     }
     timer_print (perf.gt, iter, perf.tnc);
 
