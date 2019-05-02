@@ -1,9 +1,12 @@
+/**
+# Wave propagation Algorithm
+*/
+
 #include "utils.h"   /* Needed for DT, CFL, among other things */
 
 /* ----------------------------- Defined by the user ---------------------------------- */
 /* Lists of state variables */
 extern scalar* scalars;     
-extern vector* vectors;
 
 /* Number of waves in system;  usually == number of equations, but not always */
 extern int mwaves;
@@ -55,6 +58,10 @@ static double dt;
 
 event defaults (i = 0)
 {
+    vector *vectors = NULL;
+    statevars = list_concat (scalars, (scalar *) vectors);   
+    meqn = list_len(statevars);
+
     dt_initial = DT;
     conservation_law = true;
     order = 2;
@@ -93,26 +100,11 @@ event cleanup(i=end, last)
 
 /* ------------------------ Wave Propagation Algorithm -------------------------------- */
 
+#if 0
 void wpa_initialize(vector **wpa_fm, vector **wpa_fp, vector **wpa_flux)  
 {
-
-    statevars = list_concat (scalars, (scalar *) vectors);       
-    meqn = list_len(statevars);
-    *wpa_fm = NULL;
-    *wpa_fp = NULL;
-    *wpa_flux = NULL;
-    for(int m = 0; m < meqn; m++)
-    {
-        vector fmv = new face vector;
-        *wpa_fm = vectors_append(*wpa_fm,fmv);
-
-        vector fpv = new face vector;
-        *wpa_fp = vectors_append(*wpa_fp,fpv);
-
-        vector f = new face vector;
-        *wpa_flux = vectors_append(*wpa_flux,f);
-    }
 }
+#endif
 
 double wpa_limiter(double a, double b,int mlim)
 {
@@ -167,13 +159,35 @@ double wpa_limiter(double a, double b,int mlim)
     return wlimiter; 
 }
 
-
+#if 0
 double wpa_advance(double dt, vector* wpa_fm, vector* wpa_fp, 
                    vector* wpa_flux, double* cflmax)
+#endif                   
+double wpa_advance(double dt, double* cflmax)
 {
 
     double dtnew = DT;
     *cflmax = 0;
+
+    vector *wpa_fm = NULL;
+    vector *wpa_fp = NULL;
+    vector *wpa_flux = NULL;
+    for(int m = 0; m < meqn; m++)
+    {
+        if (conservation_law)
+        {
+            vector f = new face vector;
+            wpa_flux = vectors_append(wpa_flux,f);            
+        }
+        else
+        {
+            vector fmv = new face vector;
+            wpa_fm = vectors_append(wpa_fm,fmv);
+
+            vector fpv = new face vector;
+            wpa_fp = vectors_append(wpa_fp,fpv);
+        }
+    }
 
     boundary(statevars);
 
@@ -197,13 +211,6 @@ double wpa_advance(double dt, vector* wpa_fm, vector* wpa_fp,
             {
                 qr[m] = q[0];
                 ql[m] = q[-1];
-                m++;
-            }
-
-            for (vector w in vectors) 
-            {
-                qr[m] = w.x[0];
-                ql[m] = w.x[-1];
                 m++;
             }
 
@@ -233,18 +240,26 @@ double wpa_advance(double dt, vector* wpa_fm, vector* wpa_fp,
             } 
 
             /* First order update */
-            vector fm;
-            vector fp;
-            vector f;
-
-            m = 0;
-            for (fm,fp,f in wpa_fm,wpa_fp,wpa_flux) 
+            if (conservation_law)
             {
-                fm.x[] = amdq[m];                
-                fp.x[] = -apdq[m]; 
-
-                f.x[] = flux[m] + fp.x[];   
-                m++;
+                int m = 0;
+                for (vector f in wpa_flux) 
+                {
+                    f.x[] = flux[m] - apdq[m];   
+                    m++;
+                }
+            }
+            else
+            {
+                vector fm;
+                vector fp;
+                int m = 0;
+                for (fm,fp in wpa_fm,wpa_fp) 
+                {
+                    fm.x[] = amdq[m];                
+                    fp.x[] = -apdq[m]; 
+                    m++;
+                }
             }
 
             /* --------------------- Second order corrections ----------------------------- */
@@ -273,14 +288,6 @@ double wpa_advance(double dt, vector* wpa_fm, vector* wpa_fp,
                     q0[m]  = q[0];
                     qp1[m] = q[1];
 
-                    m++;
-                }
-                for (vector w in vectors) 
-                {
-                    qm2[m] = w.x[-2];
-                    qm1[m] = w.x[-1];
-                    q0[m]  = w.x[0];
-                    qp1[m] = w.x[1];
                     m++;
                 }
 
@@ -331,32 +338,50 @@ double wpa_advance(double dt, vector* wpa_fm, vector* wpa_fp,
                         cqxx[m] += cq*waves[m+mw*meqn];
                 }
 
-                m = 0;
-                vector f;
-                for (fm,fp,f in wpa_fm,wpa_fp,wpa_flux) 
+                if (conservation_law)
                 {
-                    fm.x[] += 0.5*cqxx[m];
-                    fp.x[] += 0.5*cqxx[m];   
-                    f.x[]  += 0.5*cqxx[m];  
-                    m++;
-                }  
+                    int m = 0;
+                    for (vector f in wpa_flux) 
+                    {
+                        f.x[]  += 0.5*cqxx[m];  
+                        m++;
+                    }  
+                }
+                else
+                {
+                    vector fm;
+                    vector fp;
+                    int m = 0;
+                    for (fm,fp in wpa_fm,wpa_fp) 
+                    {
+                        fm.x[] += 0.5*cqxx[m];
+                        fp.x[] += 0.5*cqxx[m];   
+                        m++;
+                    }  
+                }
             }   /* End of second order corrections */
         } /* end of foreach_face */
 
         /* Replace coarse grid fluxes with fine grid fluxes */
-        boundary_flux(wpa_fp);
-        boundary_flux(wpa_fm);
-        boundary_flux(wpa_flux);
+        if (conservation_law)
+        {
+            boundary_flux(wpa_flux);
+        }
+        else
+        {
+            boundary_flux(wpa_fp);
+            boundary_flux(wpa_fm);            
+        }
 
         /* ------------------------------ Update solution --------------------------------- */
         foreach()
         {
             double dtdx = dt/Delta;
-            scalar q;
 
             if (conservation_law)
             {            
                 vector f;
+                scalar q;
                 for (f,q in wpa_flux, statevars) 
                     q[] += -dtdx*(f.x[1] - f.x[]);
             }
@@ -364,22 +389,25 @@ double wpa_advance(double dt, vector* wpa_fm, vector* wpa_fp,
             {
                 vector fp;
                 vector fm;
+                scalar q;
                 for (fp, fm, q in wpa_fp, wpa_fm, statevars) 
                     q[] += -dtdx*(fm.x[1] - fp.x[]);  
             }
         }
         dir++;
     } /* End of dimension loop */
+
+    if (conservation_law)
+    {
+        free(wpa_flux);    
+    }
+    else
+    {
+        free(wpa_fp);
+        free(wpa_fm);        
+    }        
     return dtnew;
 }
-
-void wpa_cleanup(vector **wpa_fm, vector **wpa_fp, vector **wpa_flux)  
-{
-    free(*wpa_fp);
-    free(*wpa_fm);
-    free(*wpa_flux);    
-}
-
 
 void run()
 {
@@ -392,9 +420,9 @@ void run()
     double dt_curr;
 
     /* Set up global variables */
-    vector *wpa_fp, *wpa_fm, *wpa_flux;
+    //vector *wpa_fp, *wpa_fm, *wpa_flux;
 
-    wpa_initialize(&wpa_fm, &wpa_fp, &wpa_flux);
+    //wpa_initialize(&wpa_fm, &wpa_fp, &wpa_flux);
 
 
     /* Events are processed first, followed by statements in the while loop */
@@ -402,7 +430,8 @@ void run()
     perf.gt = timer_start();
     while (events (true)) 
     {
-        dtnew = wpa_advance(dt, wpa_fm, wpa_fp, wpa_flux, &cflmax);
+        //dtnew = wpa_advance(dt, wpa_fm, wpa_fp, wpa_flux, &cflmax);
+        dtnew = wpa_advance(dt, &cflmax);
         dt_curr = dt;
         t += dt_curr; /* Use step just taken */        
 
@@ -426,7 +455,7 @@ void run()
     }
     timer_print (perf.gt, iter, perf.tnc);
 
-    wpa_cleanup(&wpa_fm, &wpa_fp, &wpa_flux);
+    //wpa_cleanup(&wpa_fm, &wpa_fp, &wpa_flux);
 
     free_grid();
 }

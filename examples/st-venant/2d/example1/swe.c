@@ -1,13 +1,15 @@
+/** 
+St. Venant using Wave Propagation Algorithm 
+*/
+
 #include "grid/quadtree.h"
 
 #include "waveprop.h"
-#include "waveprop_output.h"
 #include "rpn2_swe.h"
 
 scalar h[];
 vector hu[];
 scalar *scalars = {h,hu};
-//vector *vectors = NULL;
 
 
 int mwaves = 3;
@@ -89,13 +91,21 @@ event init (i = 0)
     boundary(scalars);
 }
 
-event plot(i += 1)
+event logfile (i++)
 {
-    /* Plot Matlab output files */
+  fprintf (stderr, "%g %g\n", t, normf(hu.x).max);
 }
 
+event movie (i += 10)
+{
+  output_ppm (h, linear = true, file = "h.mp4", n = 512);
+  scalar l[];
+  foreach()
+      l[] = level;
+  output_ppm (l, file = "level.mp4", min = MINLEVEL, max = MAXLEVEL, n = 512);
+}
 
-event conservation_check (i++; i <= 200)
+event conservation_check (t += 1)
 {
     double sum[3] = {0,0,0};
     foreach()
@@ -126,15 +136,12 @@ event conservation_check (i++; i <= 200)
 }
 
 
-//event end (i = 1600) 
-event end (i == 200)
+event end (i = 1600)
 {
   printf ("i = %d t = %g\n", i, t);
-  //dump();
 }
 
 
-/* 1e-3 is too large */
 #if ADAPT
 event adapt (i++) 
 {
@@ -142,8 +149,20 @@ event adapt (i++)
 }
 #endif
 
+/**
+Here are the results.
 
+![Animation of free surface height](swe/h.mp4)
 
+![Animation of the level of refinement](swe/level.mp4)
+
+~~~gnuplot Maximum velocity as a function of time
+set xlabel 'Time'
+set ylabel 'Maximum velocity'
+unset key
+plot 'log' w l
+~~~
+*/
 
 
 
