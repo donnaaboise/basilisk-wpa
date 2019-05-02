@@ -74,7 +74,9 @@ set(pout,'Facecolor','flat');
 
 title(sprintf('t = %g',t),'fontsize',16);
 
+Frame = frameno;
 assignin('caller','pout',pout);
+assignin('caller','Frame',Frame);
 
 if exist('afterframe.m','file')
     afterframe;

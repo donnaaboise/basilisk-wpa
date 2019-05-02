@@ -24,10 +24,12 @@ vector *aux;
 
 int matlab_out = true;
 
-#define MINLEVEL 8
-#define MAXLEVEL 10
+#define MINLEVEL 5
+#define MAXLEVEL 9
+#define ADAPT 1
 
 static double threshold = 1e-4;
+static double sum0;
 
 
 int main() 
@@ -40,7 +42,7 @@ int main()
     periodic (left);        
     periodic (bottom);
 
-    N = 1 << MINLEVEL;
+    N = 1 << MAXLEVEL;
     run();
 }
 
@@ -56,26 +58,39 @@ event init (i = 0)
 
     wpa_rpsolver = rpn2_adv;
 
+    astats s;
+    do {
+        vertex scalar phi[];   
+        foreach_vertex()       
+        {
+            phi[] = 0.5 - sqrt(x*x + y*y);                
+        }
+        boundary ({phi});      
+        fractions (phi, q);    
+        s = adapt_wavelet ({q}, (double []){1e-5}, maxlevel = MAXLEVEL);
+    } while (s.nf);
+
 #if 0
-    vertex scalar phi[];   
-    foreach_vertex()       
-    {
-        phi[] = 0.5 - sqrt(x*x + y*y);                
-    }
-    boundary ({phi});      
-    fractions (phi, q);    
-#else
-    foreach() 
-    {
-        //q[] = exp(-100.0*sq(x*x + y*y));     
-        //q[] = sin(4*pi*x);
-        q[] = sqrt(x*x + y*y) <= 0.5;
-    }
-#endif    
-    astats s = adapt_wavelet ({q}, (double []){threshold}, maxlevel = MAXLEVEL);
+    //astats s = adapt_wavelet ({q}, (double []){threshold}, maxlevel = MINLEVEL);
     while (s.nf > 0)
-        s = adapt_wavelet ({q}, (double []){threshold}, maxlevel = MAXLEVEL);
+        s = adapt_wavelet ({q}, (double []){1e-5}, maxlevel = MINLEVEL);
+#endif        
 }
+
+event conservation_check(t=0; )
+{
+    double sum = 0;
+    foreach()
+    {
+        sum += Delta*Delta*q[];
+    }
+    if (i == 0)
+        sum0 = sum;
+
+    printf("t = %20.16f; mass = %24.16e; diff = %24.16e\n",t, sum, fabs(sum0-sum));
+    fflush(stdout);
+}
+
 
 event images (t += 0.25; t <= 4)
 {
@@ -96,7 +111,8 @@ event plot (t += 0.25; t <= 4)
 }
 
 /* Threshold > 1e-3 */
-#if TREE
+
+#if ADAPT //TREE
 event adapt (i++) 
 {
   adapt_wavelet ({q}, (double []){threshold}, maxlevel = MAXLEVEL);

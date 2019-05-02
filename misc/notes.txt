@@ -1,0 +1,21 @@
+4/19/2019
+---------
+
+1.  How is tnext set? 
+
+2.  Can I get Delta outside of a foreach loop? Or a dx, dy, dz ? 
+
+3.  Boundary conditions! 
+
+4. 
+
+4/23/2019
+---------
+
+1.  Difference between multigrid1D.h and bitree.h
+
+2.  How is the coarse/fine boundary handled?  
+
+3.  Why doesn't graphics work for some of the examples? 
+
+4. 
