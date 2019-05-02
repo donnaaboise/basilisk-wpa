@@ -6,7 +6,8 @@
 
 /* ----------------------------- Defined by the user ---------------------------------- */
 /* Lists of state variables */
-extern scalar* scalars;     
+extern scalar* scalars;   
+extern vector* vectors;  
 
 /* Number of waves in system;  usually == number of equations, but not always */
 extern int mwaves;
@@ -48,6 +49,15 @@ static int meqn;
 
 static double dt;
 
+void wpa_initialize(vector **wpa_fm, vector **wpa_fp, vector **wpa_flux);
+void wpa_cleanup(vector** wpa_fm, vector** wpa_fp, vector** wpa_flux);
+
+
+static vector *wpa_fp; 
+static vector *wpa_fm; 
+static vector *wpa_flux;
+
+
 /* ------------------------- Used by Basilisk and set here ---------------------------- */
 
 /* Needed to get two layers of ghost cells at physical boundary.  Used here so we can do 
@@ -58,9 +68,6 @@ static double dt;
 
 event defaults (i = 0)
 {
-    vector *vectors = NULL;
-    statevars = list_concat (scalars, (scalar *) vectors);   
-    meqn = list_len(statevars);
 
     dt_initial = DT;
     conservation_law = true;
@@ -93,18 +100,55 @@ event init (i = 0)
     boundary (statevars);
 }
 
+event wpa_setup(i = 0)
+{
+    wpa_initialize(&wpa_fm, &wpa_fp, &wpa_flux);
+}
+
 event cleanup(i=end, last)
 {
+    if (conservation_law)
+    {
+        free(wpa_flux);    
+    }
+    else
+    {
+        free(wpa_fp);
+        free(wpa_fm);        
+    }            
+
     free(statevars);
 }
 
 /* ------------------------ Wave Propagation Algorithm -------------------------------- */
 
-#if 0
 void wpa_initialize(vector **wpa_fm, vector **wpa_fp, vector **wpa_flux)  
 {
+    statevars = list_concat (scalars, (scalar *) vectors);   
+    meqn = list_len(statevars);
+
+    *wpa_fm = NULL;
+    *wpa_fp = NULL;
+    *wpa_flux = NULL;
+    
+    for(int m = 0; m < meqn; m++)
+    {
+        if (conservation_law)
+        {
+            fprintf(stderr,"Setting conservation variables\n");
+            vector f = new face vector;
+            *wpa_flux = vectors_append(*wpa_flux,f);            
+        }
+        else
+        {
+            vector fmv = new face vector;
+            *wpa_fm = vectors_append(*wpa_fm,fmv);
+
+            vector fpv = new face vector;
+            *wpa_fp = vectors_append(*wpa_fp,fpv);
+        }
+    }
 }
-#endif
 
 double wpa_limiter(double a, double b,int mlim)
 {
@@ -159,35 +203,12 @@ double wpa_limiter(double a, double b,int mlim)
     return wlimiter; 
 }
 
-#if 0
 double wpa_advance(double dt, vector* wpa_fm, vector* wpa_fp, 
                    vector* wpa_flux, double* cflmax)
-#endif                   
-double wpa_advance(double dt, double* cflmax)
 {
 
     double dtnew = DT;
     *cflmax = 0;
-
-    vector *wpa_fm = NULL;
-    vector *wpa_fp = NULL;
-    vector *wpa_flux = NULL;
-    for(int m = 0; m < meqn; m++)
-    {
-        if (conservation_law)
-        {
-            vector f = new face vector;
-            wpa_flux = vectors_append(wpa_flux,f);            
-        }
-        else
-        {
-            vector fmv = new face vector;
-            wpa_fm = vectors_append(wpa_fm,fmv);
-
-            vector fpv = new face vector;
-            wpa_fp = vectors_append(wpa_fp,fpv);
-        }
-    }
 
     boundary(statevars);
 
@@ -397,6 +418,7 @@ double wpa_advance(double dt, double* cflmax)
         dir++;
     } /* End of dimension loop */
 
+#if 0
     if (conservation_law)
     {
         free(wpa_flux);    
@@ -406,8 +428,24 @@ double wpa_advance(double dt, double* cflmax)
         free(wpa_fp);
         free(wpa_fm);        
     }        
+#endif    
     return dtnew;
 }
+
+#if 0
+void wpa_cleanup(vector** wpa_fm, vector** wpa_fp, vector** wpa_flux)
+{
+    if (conservation_law)
+    {
+        free(*wpa_flux);    
+    }
+    else
+    {
+        free(*wpa_fp);
+        free(*wpa_fm);        
+    }            
+}
+#endif
 
 void run()
 {
@@ -420,18 +458,14 @@ void run()
     double dt_curr;
 
     /* Set up global variables */
-    //vector *wpa_fp, *wpa_fm, *wpa_flux;
-
-    //wpa_initialize(&wpa_fm, &wpa_fp, &wpa_flux);
-
 
     /* Events are processed first, followed by statements in the while loop */
     perf.nc = perf.tnc = 0;
     perf.gt = timer_start();
     while (events (true)) 
     {
-        //dtnew = wpa_advance(dt, wpa_fm, wpa_fp, wpa_flux, &cflmax);
-        dtnew = wpa_advance(dt, &cflmax);
+        dtnew = wpa_advance(dt, wpa_fm, wpa_fp, wpa_flux, &cflmax);
+        //dtnew = wpa_advance(dt, &cflmax);
         dt_curr = dt;
         t += dt_curr; /* Use step just taken */        
 
@@ -452,6 +486,7 @@ void run()
         iter = inext;
         fprintf(stdout,"Step %6d : dt = %8.4e; cflmax = %8.4f; Time = %12.4f\n",
                 iter, dt_curr, cflmax,t);
+
     }
     timer_print (perf.gt, iter, perf.tnc);
 
