@@ -107,14 +107,15 @@ event wpa_setup(i = 0)
 
 event cleanup(i=end, last)
 {
+    free(wpa_flux);    
+    free(wpa_fp);
+    free(wpa_fm);        
+
     if (conservation_law)
     {
-        free(wpa_flux);    
     }
     else
     {
-        free(wpa_fp);
-        free(wpa_fm);        
     }            
 
     free(statevars);
@@ -133,19 +134,20 @@ void wpa_initialize(vector **wpa_fm, vector **wpa_fp, vector **wpa_flux)
     
     for(int m = 0; m < meqn; m++)
     {
+        vector f = new face vector;
+        *wpa_flux = vectors_append(*wpa_flux,f);            
+
+        vector fmv = new face vector;
+        *wpa_fm = vectors_append(*wpa_fm,fmv);
+
+        vector fpv = new face vector;
+        *wpa_fp = vectors_append(*wpa_fp,fpv);
+
         if (conservation_law)
         {
-            fprintf(stderr,"Setting conservation variables\n");
-            vector f = new face vector;
-            *wpa_flux = vectors_append(*wpa_flux,f);            
         }
         else
         {
-            vector fmv = new face vector;
-            *wpa_fm = vectors_append(*wpa_fm,fmv);
-
-            vector fpv = new face vector;
-            *wpa_fp = vectors_append(*wpa_fp,fpv);
         }
     }
 }
@@ -261,26 +263,23 @@ double wpa_advance(double dt, vector* wpa_fm, vector* wpa_fp,
             } 
 
             /* First order update */
+            vector fm;
+            vector fp;
+            vector f;
+            m = 0;
+            for (fp, fm, f in wpa_fp, wpa_fm, wpa_flux) 
+            {
+                fm.x[] = amdq[m];                
+                fp.x[] = -apdq[m]; 
+                f.x[] = flux[m] - apdq[m];   
+                m++;
+            }
+
             if (conservation_law)
             {
-                int m = 0;
-                for (vector f in wpa_flux) 
-                {
-                    f.x[] = flux[m] - apdq[m];   
-                    m++;
-                }
             }
             else
             {
-                vector fm;
-                vector fp;
-                int m = 0;
-                for (fm,fp in wpa_fm,wpa_fp) 
-                {
-                    fm.x[] = amdq[m];                
-                    fp.x[] = -apdq[m]; 
-                    m++;
-                }
             }
 
             /* --------------------- Second order corrections ----------------------------- */
@@ -359,39 +358,37 @@ double wpa_advance(double dt, vector* wpa_fm, vector* wpa_fp,
                         cqxx[m] += cq*waves[m+mw*meqn];
                 }
 
+                vector fm;
+                vector fp;
+                vector f;
+                m = 0;
+                for (fp,fm, f in wpa_fp, wpa_fm, wpa_flux) 
+                {
+                    fm.x[] += 0.5*cqxx[m];
+                    fp.x[] += 0.5*cqxx[m];   
+                    f.x[]  += 0.5*cqxx[m];  
+                    m++;
+                }  
+
                 if (conservation_law)
                 {
-                    int m = 0;
-                    for (vector f in wpa_flux) 
-                    {
-                        f.x[]  += 0.5*cqxx[m];  
-                        m++;
-                    }  
                 }
                 else
                 {
-                    vector fm;
-                    vector fp;
-                    int m = 0;
-                    for (fm,fp in wpa_fm,wpa_fp) 
-                    {
-                        fm.x[] += 0.5*cqxx[m];
-                        fp.x[] += 0.5*cqxx[m];   
-                        m++;
-                    }  
                 }
             }   /* End of second order corrections */
         } /* end of foreach_face */
 
         /* Replace coarse grid fluxes with fine grid fluxes */
+        boundary_flux(wpa_flux);
+        boundary_flux(wpa_fp);
+        boundary_flux(wpa_fm);            
+
         if (conservation_law)
         {
-            boundary_flux(wpa_flux);
         }
         else
         {
-            boundary_flux(wpa_fp);
-            boundary_flux(wpa_fm);            
         }
 
         /* ------------------------------ Update solution --------------------------------- */
@@ -432,17 +429,17 @@ double wpa_advance(double dt, vector* wpa_fm, vector* wpa_fp,
     return dtnew;
 }
 
-#if 0
+#if 1
 void wpa_cleanup(vector** wpa_fm, vector** wpa_fp, vector** wpa_flux)
 {
+    free(*wpa_flux);    
+    free(*wpa_fp);
+    free(*wpa_fm);        
     if (conservation_law)
     {
-        free(*wpa_flux);    
     }
     else
     {
-        free(*wpa_fp);
-        free(*wpa_fm);        
     }            
 }
 #endif
