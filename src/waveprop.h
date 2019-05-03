@@ -7,7 +7,7 @@
 /* ----------------------------- Defined by the user ---------------------------------- */
 /* Lists of state variables */
 extern scalar* scalars;   
-extern vector* vectors;  
+//extern vector* vectors;  
 
 /* Number of waves in system;  usually == number of equations, but not always */
 extern int mwaves;
@@ -53,9 +53,9 @@ void wpa_initialize(vector **wpa_fm, vector **wpa_fp, vector **wpa_flux);
 void wpa_cleanup(vector** wpa_fm, vector** wpa_fp, vector** wpa_flux);
 
 
-static vector *wpa_fp; 
-static vector *wpa_fm; 
-static vector *wpa_flux;
+static vector *wpa_fp = NULL; 
+static vector *wpa_fm = NULL; 
+static vector *wpa_flux = NULL;
 
 
 /* ------------------------- Used by Basilisk and set here ---------------------------- */
@@ -68,6 +68,8 @@ static vector *wpa_flux;
 
 event defaults (i = 0)
 {
+    statevars = list_copy(scalars);  
+    meqn = list_len(statevars);
 
     dt_initial = DT;
     conservation_law = true;
@@ -107,17 +109,7 @@ event wpa_setup(i = 0)
 
 event cleanup(i=end, last)
 {
-    free(wpa_flux);    
-    free(wpa_fp);
-    free(wpa_fm);        
-
-    if (conservation_law)
-    {
-    }
-    else
-    {
-    }            
-
+    wpa_cleanup(&wpa_fm, &wpa_fp, &wpa_flux);
     free(statevars);
 }
 
@@ -125,31 +117,25 @@ event cleanup(i=end, last)
 
 void wpa_initialize(vector **wpa_fm, vector **wpa_fp, vector **wpa_flux)  
 {
-    statevars = list_concat (scalars, (scalar *) vectors);   
-    meqn = list_len(statevars);
-
     *wpa_fm = NULL;
     *wpa_fp = NULL;
     *wpa_flux = NULL;
     
-    for(int m = 0; m < meqn; m++)
-    {
-        vector f = new face vector;
-        *wpa_flux = vectors_append(*wpa_flux,f);            
-
-        vector fmv = new face vector;
-        *wpa_fm = vectors_append(*wpa_fm,fmv);
-
-        vector fpv = new face vector;
-        *wpa_fp = vectors_append(*wpa_fp,fpv);
-
-        if (conservation_law)
+    if (conservation_law)
+        for(int m = 0; m < meqn; m++)
         {
+            vector f = new face vector;
+            *wpa_flux = vectors_append(*wpa_flux,f);            
         }
-        else
+    else
+        for(int m = 0; m < meqn; m++)
         {
+            vector fmv = new face vector;
+            *wpa_fm = vectors_append(*wpa_fm,fmv);
+
+            vector fpv = new face vector;
+            *wpa_fp = vectors_append(*wpa_fp,fpv);
         }
-    }
 }
 
 double wpa_limiter(double a, double b,int mlim)
@@ -263,23 +249,26 @@ double wpa_advance(double dt, vector* wpa_fm, vector* wpa_fp,
             } 
 
             /* First order update */
-            vector fm;
-            vector fp;
-            vector f;
-            m = 0;
-            for (fp, fm, f in wpa_fp, wpa_fm, wpa_flux) 
-            {
-                fm.x[] = amdq[m];                
-                fp.x[] = -apdq[m]; 
-                f.x[] = flux[m] - apdq[m];   
-                m++;
-            }
-
             if (conservation_law)
             {
+                m = 0;
+                for (vector f in wpa_flux) 
+                {
+                    f.x[] = flux[m] - apdq[m];   
+                    m++;
+                }
             }
             else
             {
+                vector fm;
+                vector fp;
+                m = 0;
+                for (fp, fm in wpa_fp, wpa_fm) 
+                {
+                    fm.x[] = amdq[m];                
+                    fp.x[] = -apdq[m]; 
+                    m++;
+                }                
             }
 
             /* --------------------- Second order corrections ----------------------------- */
@@ -358,37 +347,39 @@ double wpa_advance(double dt, vector* wpa_fm, vector* wpa_fp,
                         cqxx[m] += cq*waves[m+mw*meqn];
                 }
 
-                vector fm;
-                vector fp;
-                vector f;
-                m = 0;
-                for (fp,fm, f in wpa_fp, wpa_fm, wpa_flux) 
-                {
-                    fm.x[] += 0.5*cqxx[m];
-                    fp.x[] += 0.5*cqxx[m];   
-                    f.x[]  += 0.5*cqxx[m];  
-                    m++;
-                }  
-
                 if (conservation_law)
                 {
+                    m = 0;
+                    for (vector f in wpa_flux) 
+                    {
+                        f.x[]  += 0.5*cqxx[m];  
+                        m++;
+                    }  
                 }
                 else
                 {
+                    vector fm;
+                    vector fp;
+                    m = 0;
+                    for (fp,fm in wpa_fp, wpa_fm) 
+                    {
+                        fm.x[] += 0.5*cqxx[m];
+                        fp.x[] += 0.5*cqxx[m];   
+                        m++;
+                    }  
                 }
             }   /* End of second order corrections */
         } /* end of foreach_face */
 
         /* Replace coarse grid fluxes with fine grid fluxes */
-        boundary_flux(wpa_flux);
-        boundary_flux(wpa_fp);
-        boundary_flux(wpa_fm);            
-
         if (conservation_law)
         {
+            boundary_flux(wpa_flux);
         }
         else
         {
+            boundary_flux(wpa_fp);
+            boundary_flux(wpa_fm);            
         }
 
         /* ------------------------------ Update solution --------------------------------- */
@@ -415,34 +406,24 @@ double wpa_advance(double dt, vector* wpa_fm, vector* wpa_fp,
         dir++;
     } /* End of dimension loop */
 
-#if 0
-    if (conservation_law)
-    {
-        free(wpa_flux);    
-    }
-    else
-    {
-        free(wpa_fp);
-        free(wpa_fm);        
-    }        
-#endif    
     return dtnew;
 }
 
-#if 1
 void wpa_cleanup(vector** wpa_fm, vector** wpa_fp, vector** wpa_flux)
 {
-    free(*wpa_flux);    
-    free(*wpa_fp);
-    free(*wpa_fm);        
     if (conservation_law)
     {
+        free(*wpa_flux);   
+        *wpa_flux = NULL; 
     }
     else
     {
-    }            
+        free(*wpa_fp);
+        free(*wpa_fm);        
+        *wpa_fp = NULL;
+        *wpa_fm = NULL;
+    }                
 }
-#endif
 
 void run()
 {
@@ -453,8 +434,6 @@ void run()
     double cflmax = 0;
     double dtnew;
     double dt_curr;
-
-    /* Set up global variables */
 
     /* Events are processed first, followed by statements in the while loop */
     perf.nc = perf.tnc = 0;
