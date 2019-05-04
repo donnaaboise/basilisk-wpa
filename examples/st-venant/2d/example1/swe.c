@@ -4,7 +4,10 @@ St. Venant using Wave Propagation Algorithm
 
 #include "grid/quadtree.h"
 
-#include "waveprop.h"
+#define SLOW 0
+#define FAST !SLOW
+
+#include "waveprop_slow.h"
 #include "rpn2_swe.h"
 
 scalar h[];
@@ -92,10 +95,12 @@ event init (i = 0)
     boundary(scalars);
 }
 
+#if 0
 event logfile (i++)
 {
   fprintf (stderr, "%g %g\n", t, normf(hu.x).max);
 }
+#endif
 
 #if 1
 event movie (i += 10)
@@ -108,7 +113,7 @@ event movie (i += 10)
 }
 #endif
 
-event conservation_check (i +=1; i <= 200)
+event conservation_check (i += 160)
 {
     double sum[3] = {0,0,0};
     foreach()
