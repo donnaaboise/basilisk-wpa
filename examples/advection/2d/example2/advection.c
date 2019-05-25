@@ -1,8 +1,6 @@
 #include "grid/quadtree.h"
-//#include "utils.h"
-//#include "common.h"
 
-#define USE_WAVEPROP 1
+#define USE_WAVEPROP 0
 
 #if USE_WAVEPROP
 #include "waveprop.h"
@@ -29,33 +27,30 @@ int mwaves = 1;
 
 int limiters[1] = {0}, *mthlim = limiters;
 
-
 int matlab_out = true;
+
+
 #else
 
-#include "advection.h"
-
+#include "advection_basilisk.h"
 scalar f[];
 scalar * tracers = {f};
 #endif
 
+static double dt0 = 2e-2;
 
-//static double dt0 = 2.5e-3;  /* works for N = 128 */
-
-/* Don't change dt0, N0 */
-#define DT0     2e-2
+/* Don't change these */
 #define N0      16
 #define NOUT0   250    /* nout for N=16; dt = 2e-2; T_final = 5 */
 #define NSTEP0  25
 
 /* Change FACTOR to increase resolution */
-#define FACTOR  1    /* 1,2,4,8,16,32,64, ... */
+#define FACTOR  64    /* 1,2,4,8,16,32,64, ... */
 
 
-/* Computed from FACTOR */
+/* Computed from FACTOR.  Note : Don't re-define N here! */
 #define NOUT    FACTOR*NOUT0
 #define NSTEP   FACTOR*NSTEP0
-
 
 int main()
 {
@@ -64,28 +59,29 @@ int main()
 
     N = FACTOR*N0;
 
+
     run();
 }
 
 #if USE_WAVEPROP
-/* Called after defaults in waveprop.h, but before everything else (e.g. setaux, qinit)) */
+/* Called after defaults in waveprop.h, but before everything else) */
 event user_parameters(i=0)  
 {
     use_fwaves = true;  /* Solve conservative advection equations */
 
     if (use_fwaves)     
-    {        
+    {
         wpa_rpsolver = rpn2_adv_fwaves;
         conservation_law = true;
     }
     else
     {
         wpa_rpsolver = rpn2_adv_vc;
-        conservation_law = false;
+        conservation_law = false;        
     }
     
     dt_fixed = true;
-    dt_initial = DT0/FACTOR;
+    dt_initial = dt0/FACTOR;
 
     order = 2;
 }
@@ -96,11 +92,10 @@ event setaux(i++)
     trash ({u,v});
     if (!use_fwaves)
     {
-        /* Edge-centered velocities that are discretely divergence free */
         vertex scalar psi[];
         foreach_vertex()
         {
-            psi[] = -1.5*sin(2.*pi*t/5.)*sin(pi*(x + 0.5))*sin(pi*(y + 0.5))/pi;        
+            psi[] = -1.5*sin(2.*pi*(t)/5.)*sin(pi*(x + 0.5))*sin(pi*(y + 0.5))/pi;        
         }
         foreach()
         {
@@ -110,11 +105,10 @@ event setaux(i++)
     }
     else
     {
-        /* Cell-centered velocities that are not discretely divergence free */
         foreach()
         {
-            u[] =  1.5*pi*sin(2.*pi*t/5.)*sin(pi*(x + 0.5))*cos(pi*(y + 0.5))/pi;  
-            v[] = -1.5*pi*sin(2.*pi*t/5.)*cos(pi*(x + 0.5))*sin(pi*(y + 0.5))/pi;  
+            u[] =  1.5*pi*sin(2.*pi*(t)/5.)*sin(pi*(x + 0.5))*cos(pi*(y + 0.5))/pi;  
+            v[] = -1.5*pi*sin(2.*pi*(t)/5.)*cos(pi*(x + 0.5))*sin(pi*(y + 0.5))/pi;  
         }
     }
     boundary ((scalar *){u, v});    
@@ -122,9 +116,6 @@ event setaux(i++)
 #endif
 
 #define bump(x,y) (exp(-100.*(sq(x + 0.2) + sq(y + .236338))))
-
-
-//#define Hsmooth(r) ((tanh((r)/0.0078125) + 1)/2.0)
 #define Hsmooth(r) ((tanh((r)/0.015625) + 1)/2.0)
 
 static
@@ -165,6 +156,7 @@ event velocity (i++)
         u.x[] = f.x*(psi[0,1] - psi[])/Delta;        
     }
     boundary ((scalar *){u});
+    dt = dt0/FACTOR;
 }
 #endif
 
