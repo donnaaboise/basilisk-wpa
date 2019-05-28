@@ -1,14 +1,22 @@
-function error_vs_time(e,t,labels,norm2use)
+function error_vs_time(varargin)
 
 close all
 
-
-
-% e1 = e_bas(:,1+norm2use);
-% t1 = t_bas;
-% 
-% e2 = e_wpa(:,1+norm2use);
-% t2 = t_wpa;
+if (length(varargin) == 1)
+    % Timing data taken from 
+    % projects/Basilisk/code/basilisk-wpa/examples/advection/2d/example2/...
+    % errors.txt
+    td = load('timing_data');
+    e = td.e;
+    t = td.t;
+    labels = td.labels;
+    norm2use = varargin{1};
+else
+    e = varargin{1};
+    t = varargin{2};
+    labels = varargin{3};
+    norm2use = varargin{4};
+end
 
 cl = {'r','b','g'};  % color
 sy = {'.','p','s'};  % symbol
@@ -43,7 +51,13 @@ ylabel('points.step/s','fontsize',16);
 title('points.steps/time vs. error','fontsize',18);
 set(gca,'fontsize',16);
 
-xl = [1e-4, 0.1];
+if (norm2use == 1)
+    xl = [9e-6, 0.1];
+elseif (norm2use == 2)
+    xl = [8.2e-5, 5.1e-1];
+else
+    xl = [1e-3, 1];
+end
 yl = [1e6,1e8];
 
 axis([xl,yl])
@@ -53,7 +67,6 @@ axis([xl,yl])
 grid
 set(gca,'gridlinestyle','-');
 set(gca,'gridalpha',0.5);
-
 
 shg
 

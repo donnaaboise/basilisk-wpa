@@ -1,6 +1,6 @@
 #include "grid/quadtree.h"
 
-#define USE_WAVEPROP 0
+#define USE_WAVEPROP 1
 
 #if USE_WAVEPROP
 #include "waveprop.h"
@@ -27,7 +27,7 @@ int mwaves = 1;
 
 int limiters[1] = {0}, *mthlim = limiters;
 
-int matlab_out = true;
+int matlab_out = false;
 
 
 #else
@@ -37,20 +37,21 @@ scalar f[];
 scalar * tracers = {f};
 #endif
 
-static double dt0 = 2e-2;
 
 /* Don't change these */
+#define DT0     2e-2
 #define N0      16
 #define NOUT0   250    /* nout for N=16; dt = 2e-2; T_final = 5 */
 #define NSTEP0  25
 
 /* Change FACTOR to increase resolution */
-#define FACTOR  64    /* 1,2,4,8,16,32,64, ... */
+#define FACTOR  128    /* 1,2,4,8,16,32,64, ... */
 
 
 /* Computed from FACTOR.  Note : Don't re-define N here! */
 #define NOUT    FACTOR*NOUT0
 #define NSTEP   FACTOR*NSTEP0
+#define TFINAL  DT0/FACTOR*NOUT
 
 int main()
 {
@@ -58,7 +59,9 @@ int main()
     origin (-0.5, -0.5);
 
     N = FACTOR*N0;
-
+#if !USE_WAVEPROP    
+    gradient = NULL;
+#endif    
 
     run();
 }
@@ -81,7 +84,7 @@ event user_parameters(i=0)
     }
     
     dt_fixed = true;
-    dt_initial = dt0/FACTOR;
+    dt_initial = DT0/FACTOR;
 
     order = 2;
 }
@@ -156,7 +159,7 @@ event velocity (i++)
         u.x[] = f.x*(psi[0,1] - psi[])/Delta;        
     }
     boundary ((scalar *){u});
-    dt = dt0/FACTOR;
+    dt = DT0/FACTOR;
 }
 #endif
 
@@ -165,10 +168,16 @@ event plot(i += NSTEP)
     /* Matlab output */
 }
 
-event logfile (t = {0,5}) 
+event logfile (t = {0,TFINAL}) 
 {
     stats s = statsf (f);
     fprintf (stderr, "# %8.4f %24.16e %24.16e %24.16e\n", t, s.sum, s.min, s.max);
+}
+
+event verbosity (i += NSTEP)
+{
+    fprintf(stdout,"Step %6d : dt = %8.4e; Time = %12.4f\n",i, dt, t);
+    fflush(stdout);
 }
 
 event field (i = NOUT) 

@@ -137,13 +137,25 @@ qinit = Hsmooth
 
 
 # WPA (timing)
-# Quadtree,   250 steps,    0.030371 CPU,    0.03062 real, 2.09e+06 points.step/s, 5 var 
-# Quadtree,   500 steps,    0.12735  CPU,    0.1282  real, 3.99e+06 points.step/s, 5 var
-# Quadtree,  1000 steps,    0.81166  CPU,    0.814   real, 5.03e+06 points.step/s, 5 var
-# Quadtree,  2000 steps,    6.76351  CPU,    6.802   real, 4.82e+06 points.step/s, 5 var
-# Quadtree,  4000 steps,   51.7636   CPU,   51.87    real, 5.05e+06 points.step/s, 5 var
-# Quadtree,  8000 steps,  397.07     CPU,  397.8     real, 5.27e+06 points.step/s, 5 var
-# Quadtree, 16000 steps, 3079.99     CPU, 3086       real, 5.44e+06 points.step/s, 5 var
+# Quadtree,   250 steps,     0.030371 CPU,     0.03062 real, 2.09e+06 points.step/s, 5 var 
+# Quadtree,   500 steps,     0.12735  CPU,     0.1282  real, 3.99e+06 points.step/s, 5 var
+# Quadtree,  1000 steps,     0.81166  CPU,     0.814   real, 5.03e+06 points.step/s, 5 var
+# Quadtree,  2000 steps,     6.76351  CPU,     6.802   real, 4.82e+06 points.step/s, 5 var
+# Quadtree,  4000 steps,    51.7636   CPU,    51.87    real, 5.05e+06 points.step/s, 5 var
+# Quadtree,  8000 steps,   397.07     CPU,   397.8     real, 5.27e+06 points.step/s, 5 var
+# Quadtree, 16000 steps,  3079.99     CPU,  3086       real, 5.44e+06 points.step/s, 5 var
+# Quadtree, 32000 steps, 25596.       CPU, 25650       real, 5.23e+06 points.step/s, 5 var  **
+
+
+
+# ** Extrapolate to get time for 32000 case.
+# Quadtree, 6400 steps, 5119.2 CPU, 5130 real, 5.23e+06 points.step/s, 5 var
+
+
+# Original case (note real time)
+# Quadtree, 32000 steps, 28335.4      CPU, 60740       real, 2.21e+06 points.step/s, 5 var
+
+
 
 # WPA (accuracy)
 16      4.8603152562983788e-02   1.0834811068784592e-01   5.3811470153198404e-01
@@ -153,6 +165,7 @@ qinit = Hsmooth
 256     2.0467937385292025e-03   1.0403961615723697e-02   1.3426019242310960e-01
 512     5.7083696055456104e-04   3.5142430280459460e-03   6.1081837399226679e-02
 1024    1.4027527017387525e-04   9.5172753562389688e-04   2.1363450404797979e-02
+2048    5.2247571982631963e-05   3.2885809472103518e-04   7.2814485781029226e-03
 
           Convergence rates
 ---------------------------------------
@@ -162,6 +175,7 @@ qinit = Hsmooth
   256/  128   1.4512   1.1518   0.7435
   512/  256   1.8422   1.5658   1.1362
  1024/  512   2.0248   1.8846   1.5156
+ 2048/ 1024   1.4248   1.5331   1.5528
 ---------------------------------------
 
 # Timing (WPA)
@@ -172,21 +186,24 @@ qinit = Hsmooth
 5.05e+06
 5.27e+06
 5.44e+06
+5.23e+06    % **** extrapolated
 
 ----------
 5/25/2019
 ----------
 
---------------------------------
-# Basilisk results 
---------------------------------
-# Quadtree,   250 steps,    0.010371 CPU,   0.01039  real, 6.16e+06 points.step/s, 7 var
-# Quadtree,   500 steps,    0.051803 CPU,   0.05194  real, 9.86e+06 points.step/s, 7 var
-# Quadtree,  1000 steps,    0.342643 CPU,   0.3438   real, 1.19e+07 points.step/s, 7 var
-# Quadtree,  2000 steps,    2.43492  CPU,   2.437    real, 1.34e+07 points.step/s, 7 var
-# Quadtree,  4000 steps,   18.5034   CPU,  18.53     real, 1.41e+07 points.step/s, 7 var
-# Quadtree,  8000 steps,  214.455    CPU,  214.8     real, 9.76e+06 points.step/s, 7 var
-# Quadtree, 16000 steps, 1594.5      CPU, 1597       real, 1.05e+07 points.step/s, 7 var
+------------------------------------------------------------
+# Basilisk results (no limiters;  see advection_basilisk.h)
+------------------------------------------------------------
+# Quadtree,   250 steps,     0.010371 CPU,    0.01039  real, 6.16e+06 points.step/s, 7 var
+# Quadtree,   500 steps,     0.051803 CPU,    0.05194  real, 9.86e+06 points.step/s, 7 var
+# Quadtree,  1000 steps,     0.342643 CPU,    0.3438   real, 1.19e+07 points.step/s, 7 var
+# Quadtree,  2000 steps,     2.43492  CPU,    2.437    real, 1.34e+07 points.step/s, 7 var
+# Quadtree,  4000 steps,    18.5034   CPU,   18.53     real, 1.41e+07 points.step/s, 7 var
+# Quadtree,  8000 steps,   214.455    CPU,   214.8     real, 9.76e+06 points.step/s, 7 var
+# Quadtree, 16000 steps,  1594.5      CPU,  1597       real, 1.05e+07 points.step/s, 7 var
+# Quadtree, 32000 steps, 12541.5      CPU, 1.258e+04   real, 1.07e+07 points.step/s, 7 var
+
 
 16      7.0133509549783590e-02   1.5852765943703137e-01   7.5269847746259866e-01
 32      4.7333112612975327e-02   1.1627316682975741e-01   6.1585491457087849e-01
@@ -195,6 +212,8 @@ qinit = Hsmooth
 256     5.8486818585033176e-03   2.3455987425737675e-02   2.0744263083027215e-01
 512     2.0106812757518877e-03   1.0077166571835588e-02   1.1850431678542428e-01
 1024    4.9073711882826416e-04   3.1341327064576675e-03   4.8684027024880949e-02
+2048    8.5864288990516538e-05   6.5948859565517564e-04   1.2937784437279332e-02
+
 
          Convergence rates
 ---------------------------------------
@@ -214,7 +233,7 @@ qinit = Hsmooth
 1.41e+07
 9.76e+06
 1.05e+07
-
+1.07e+07
 
 -----------
 ForestClaw
@@ -222,13 +241,13 @@ ForestClaw
 grid size : 16x16 (order (2,0))
 
 
-16     4.9606e-02  1.1069e-01 5.4619e-01        250     0.02917
-32     2.4638e-02  6.9389e-02 4.0253e-01       2000     0.114281
-64     1.3002e-02  4.3449e-02 2.9063e-01      16000     0.679176
-128    6.1347e-03  2.4574e-02 2.1348e-01     128000     4.90876
-256    2.2882e-03  1.1260e-02 1.2842e-01    1024000    37.6991
-512    6.1975e-04  3.8095e-03 5.6094e-02    8192000   300.422 
-1024   1.1885e-04  8.7686e-04 1.6201e-02  6.5536e+07 2364.79
+16     4.9606e-02  1.1069e-01 5.4619e-01         250       0.02917
+32     2.4638e-02  6.9389e-02 4.0253e-01        2000       0.114281
+64     1.3002e-02  4.3449e-02 2.9063e-01       16000       0.679176
+128    6.1347e-03  2.4574e-02 2.1348e-01      128000       4.90876
+256    2.2882e-03  1.1260e-02 1.2842e-01     1024000      37.6991
+512    6.1975e-04  3.8095e-03 5.6094e-02     8192000     300.422 
+1024   1.1885e-04  8.7686e-04 1.6201e-02  6.5536e+07    2364.79
 
 
 Timing data (FC) 
@@ -241,15 +260,16 @@ Timing data (FC)
    7.0945e6
 
 
-Using 32x32 grids (for all but smallest grid)
+Using 32x32 grids;  order = (2,2) (for all but smallest grid)
 
-16     4.9606e-02  1.1069e-01 5.4619e-01      250     0.02917
-32     2.4638e-02  6.9389e-02 4.0253e-01      500     0.107063
-64     1.3002e-02  4.3449e-02 2.9063e-01     4000     0.45847   
-128    6.1347e-03  2.4574e-02 2.1348e-01    32000     3.46849
-256    2.2882e-03  1.1260e-02 1.2842e-01   256000    26.5405
-512    6.1975e-04  3.8095e-03 5.6094e-02  2048000   216.605  
-1024   1.1885e-04  8.7686e-04 1.6201e-02 16384000  1702.83
+16     4.9606e-02  1.1069e-01 5.4619e-01        250        0.02917   % Use 16x16 grid
+32     2.4638e-02  6.9389e-02 4.0253e-01        500        0.107063
+64     1.3002e-02  4.3449e-02 2.9063e-01       4000        0.45847   
+128    6.1347e-03  2.4574e-02 2.1348e-01      32000        3.46849
+256    2.2882e-03  1.1260e-02 1.2842e-01     256000       26.5405
+512    6.1975e-04  3.8095e-03 5.6094e-02    2048000      216.605  
+1024   1.1885e-04  8.7686e-04 1.6201e-02   16384000     1702.83
+2048   1.7413e-05  1.4250e-04 3.0422e-03  131072000    14503.2
 
 
 Timing (FC, using 32x32 grids)
@@ -260,4 +280,42 @@ Timing (FC, using 32x32 grids)
    9.87713e6
    9.68191e6
    9.85254e6
+   9.25435e6
 
+
+------------------------
+Monday 5/27/2019
+------------------------
+
+Re-do WPA version so that Riemann problems are only called once per interface when limiting
+is not used. 
+
+
+# Quadtree,   250 steps,     0.015812 CPU,    0.01601 real, 4.00e+06  points.step/s, 5 var
+# Quadtree,   500 steps,     0.091944 CPU,    0.09203 real, 5.56e+06  points.step/s, 5 var
+# Quadtree,  1000 steps,     0.677168 CPU,    0.6802  real, 6.02e+06  points.step/s, 5 var
+# Quadtree,  2000 steps,     4.88803  CPU,    4.894   real, 6.7e+06   points.step/s, 5 var
+# Quadtree,  4000 steps,    38.6722   CPU,   38.78    real, 6.76e+06  points.step/s, 5 var
+# Quadtree,  8000 steps,   327.495    CPU,  328.4     real, 6.39e+06  points.step/s, 5 var
+# Quadtree, 16000 steps,  4141.89     CPU, 4160       real, 4.03e+06 points.step/s, 5 var
+# Quadtree, 32000 steps, 33112        CPU, 3.321e+04  real, 4.04e+06 points.step/s, 5 var
+
+
+16      4.8603152562983788e-02   1.0834811068784592e-01   5.3811470153198404e-01
+32      2.3663034901910952e-02   6.6612092981253535e-02   3.8683254042696891e-01
+64      1.2307943250447449e-02   4.1614772582544889e-02   3.0707003695617513e-01
+128     5.5966678127598547e-03   2.3117409879671143e-02   2.2478623772307565e-01
+256     2.0467937385292025e-03   1.0403961615723697e-02   1.3426019242310960e-01
+512     5.7083696055456104e-04   3.5142430280459460e-03   6.1081837399226679e-02
+1024    1.4027527017387525e-04   9.5172753562389688e-04   2.1363450404797979e-02
+2048    5.2247571982631963e-05   3.2885809472103518e-04   7.2814485781029226e-03
+
+Timing
+4.00e+06
+5.56e+06
+6.02e+06
+6.7e+06
+6.76e+06
+6.39e+06
+4.03e+06
+4.04e+06
