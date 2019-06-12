@@ -1,41 +1,29 @@
-#include "grid/quadtree.h"
+#include "grid/multigrid.h"
 
 #define USE_WAVEPROP 1
 
 #if USE_WAVEPROP
-#include "waveprop.h"
-#include "waveprop_output.h"
-#include "rpn2_adv_vc.h"
-#include "rpn2_adv_fwaves.h"
-
-scalar f[];
-scalar *scalars = {f};
-
-scalar u[];
-scalar v[];
-scalar *aux = {u,v};  /* So we can create a list of scalars */
-
-
-bool dt_fixed;
-double dt_initial;
-
-bool conservation_law;
-int order;
-bool use_fwaves;
-
-int mwaves = 1;
-
-int limiters[1] = {0}, *mthlim = limiters;
-
-int matlab_out = false;
-
-
+#include "wpa_transport.h"
 #else
+//#include "advection.h"
 
+/* Custom version that fixes the time step */
 #include "advection_basilisk.h"
-scalar f[];
-scalar * tracers = {f};
 #endif
+
+
+
+#if 1
+/* Single tracer */
+scalar f[];
+scalar *tracers = {f};
+#else
+/* Test multiple tracers */
+scalar f1[];
+scalar f2[];
+scalar *tracers = {f, f1, f2};
+#endif
+
 
 
 /* Don't change these */
@@ -45,7 +33,7 @@ scalar * tracers = {f};
 #define NSTEP0  25
 
 /* Change FACTOR to increase resolution */
-#define FACTOR  128    /* 1,2,4,8,16,32,64, ... */
+#define FACTOR  16    /* 1,2,4,8,16,32,64, ... */
 
 
 /* Computed from FACTOR.  Note : Don't re-define N here! */
@@ -59,41 +47,58 @@ int main()
     origin (-0.5, -0.5);
 
     N = FACTOR*N0;
-#if !USE_WAVEPROP    
+
+#if USE_WAVEPROP    
+    limiters[0] = 0;  /* Number corresponds to limiter type;  0 = no limiter */
+    dt_fixed = true;
+    order = 2;
+#else    
     gradient = NULL;
 #endif    
 
     run();
 }
 
-#if USE_WAVEPROP
-/* Called after defaults in waveprop.h, but before everything else) */
-event user_parameters(i=0)  
+
+#define bump(x,y) (exp(-100.*(sq(x + 0.2) + sq(y + .236338))))
+#define Hsmooth(r) ((tanh((r)/0.015625) + 1)/2.0)
+
+static
+double qinit(double x, double y)
 {
-    use_fwaves = true;  /* Solve conservative advection equations */
+    double x0 = -0.2;
+    double y0 = -.236338;
+    double r2 = sq(x-x0) + sq(y-y0);
+    //return exp(-100*r2);
 
-    if (use_fwaves)     
-    {
-        wpa_rpsolver = rpn2_adv_fwaves;
-        conservation_law = true;
-    }
-    else
-    {
-        wpa_rpsolver = rpn2_adv_vc;
-        conservation_law = false;        
-    }
-    
-    dt_fixed = true;
+    double r = sqrt(r2);
+    double r0 = 0.125;
+    return Hsmooth(r+r0) - Hsmooth(r-r0);
+}
+
+event init (i = 0)
+{
+#if USE_WAVEPROP
     dt_initial = DT0/FACTOR;
+#endif    
+    foreach()
+    {
+        for (scalar q in tracers) 
+        {
+            q[] = qinit(x,y);
+        }
+    }
 
-    order = 2;
+    boundary((scalar*) tracers);
 }
 
 
-event setaux(i++)
+#if USE_WAVEPROP
+event velocity(i++)
 {
     trash ({u,v});
     if (!use_fwaves)
+
     {
         vertex scalar psi[];
         foreach_vertex()
@@ -116,35 +121,8 @@ event setaux(i++)
     }
     boundary ((scalar *){u, v});    
 }
-#endif
+#else
 
-#define bump(x,y) (exp(-100.*(sq(x + 0.2) + sq(y + .236338))))
-#define Hsmooth(r) ((tanh((r)/0.015625) + 1)/2.0)
-
-static
-double qinit(double x, double y)
-{
-    double x0 = -0.2;
-    double y0 = -.236338;
-    double r2 = sq(x-x0) + sq(y-y0);
-    //return exp(-100*r2);
-
-    double r = sqrt(r2);
-    double r0 = 0.125;
-    return Hsmooth(r+r0) - Hsmooth(r-r0);
-}
-
-event init (i = 0)
-{
-    foreach()
-    {
-        f[] = qinit(x,y);
-    }
-
-    boundary((scalar*) {f});
-}
-
-#if !USE_WAVEPROP
 event velocity (i++) 
 {
     vertex scalar psi[];
@@ -163,12 +141,7 @@ event velocity (i++)
 }
 #endif
 
-event plot(i += NSTEP)
-{
-    /* Matlab output */
-}
-
-event logfile (t = {0,TFINAL}) 
+event logfile (i = {0,NOUT}) 
 {
     stats s = statsf (f);
     fprintf (stderr, "# %8.4f %24.16e %24.16e %24.16e\n", t, s.sum, s.min, s.max);
@@ -185,7 +158,7 @@ event field (i = NOUT)
     scalar e[];
     foreach()
     {
-        e[] = f[] - qinit(x,y);        
+        e[] = f[] - qinit(x,y);       /* Choose 1 of f1, f2 or f3 */ 
     }
     norm n = normf (e);
     fprintf (stderr, "%-5d %24.16e %24.16e %24.16e\n", N, n.avg, n.rms, n.max);
@@ -196,7 +169,7 @@ event field (i = NOUT)
 #endif        
 }
 
-#if 0
+#if 1
 event movie (i += 10)
 {
   output_ppm (f, linear = true, file = "f.mp4", n = N, min = 0, max = 1);

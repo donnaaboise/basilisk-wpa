@@ -1,7 +1,21 @@
-function plot_errors(e,idx,compare)
+function plot_errors(run2use,idx,compare)
 
-if (nargin < 3)
-    compare = false;
+
+
+if (true)
+    % Timing data taken from 
+    % projects/Basilisk/code/basilisk-wpa/examples/advection/2d/example2/...
+    % errors.txt
+    % labels='Basilisk', 'ForestClaw', 'WPA (fwaves)', 'WPA (color)'
+    td = load('timing_data');
+    e = td.e{run2use};
+    t = td.t;
+    labels = td.labels;
+    tstr = labels{run2use};
+else    
+    idx = varargin{1};
+    compare = varargin{2};
+    e = varargin{3};
 end
 
 lh = zeros(3,1);
@@ -65,7 +79,7 @@ legend(lh,lstr,'location','southwest');
 
 xlabel('N','fontsize',16);
 ylabel('Error','fontsize',16);
-title('Error','fontsize',18);
+title(sprintf('Error (%s)',tstr),'fontsize',18);
 
 set(gca,'xtick',Nvec);
 

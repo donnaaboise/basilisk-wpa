@@ -3,11 +3,26 @@
    scalar advection problem. 
 */
 
-void rpn2_adv_fwaves(int dir, int meqn, int mwaves, 
-                     double *ql, double *qr, 
-                     double *auxl, double *auxr, 
-                     double *waves, double *speeds, 
-                     double *amdq, double *apdq, double* flux)
+#include "waveprop.h"
+
+scalar u[];
+scalar v[];
+scalar *aux = {u,v};  /* So we can create a list of scalars */
+
+
+/* Defaults for this Riemann solver */
+event defaults(i=0)
+{
+    conservation_law = true;
+    use_fwaves = true;
+    mwaves = 1;
+}
+
+void wpa_rpn2(int dir, int meqn, int mwaves, 
+              double *ql, double *qr, 
+              double *auxl, double *auxr, 
+              double *waves, double *speeds, 
+              double *amdq, double *apdq, double* flux)
 {
     if (meqn != 1) 
     {

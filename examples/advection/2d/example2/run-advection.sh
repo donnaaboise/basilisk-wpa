@@ -2,4 +2,4 @@
 
 make clean
 rm -rf advection
-CFLAGS="" make advection.tst
+CC99="mpicc -D_MPI=4" make advection.tst

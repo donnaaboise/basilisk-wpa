@@ -283,22 +283,19 @@ Timing (FC, using 32x32 grids)
    9.25435e6
 
 
-------------------------
-Monday 5/27/2019
-------------------------
 
 Re-do WPA version so that Riemann problems are only called once per interface when limiting
 is not used. 
 
 
-# Quadtree,   250 steps,     0.015812 CPU,    0.01601 real, 4.00e+06  points.step/s, 5 var
-# Quadtree,   500 steps,     0.091944 CPU,    0.09203 real, 5.56e+06  points.step/s, 5 var
-# Quadtree,  1000 steps,     0.677168 CPU,    0.6802  real, 6.02e+06  points.step/s, 5 var
-# Quadtree,  2000 steps,     4.88803  CPU,    4.894   real, 6.7e+06   points.step/s, 5 var
-# Quadtree,  4000 steps,    38.6722   CPU,   38.78    real, 6.76e+06  points.step/s, 5 var
-# Quadtree,  8000 steps,   327.495    CPU,  328.4     real, 6.39e+06  points.step/s, 5 var
-# Quadtree, 16000 steps,  4141.89     CPU, 4160       real, 4.03e+06 points.step/s, 5 var
-# Quadtree, 32000 steps, 33112        CPU, 3.321e+04  real, 4.04e+06 points.step/s, 5 var
+# Quadtree,   250 steps,     0.015812 CPU,     0.01601 real, 4.00e+06  points.step/s, 5 var
+# Quadtree,   500 steps,     0.091944 CPU,     0.09203 real, 5.56e+06  points.step/s, 5 var
+# Quadtree,  1000 steps,     0.677168 CPU,     0.6802  real, 6.02e+06  points.step/s, 5 var
+# Quadtree,  2000 steps,     4.88803  CPU,     4.894   real, 6.70e+06  points.step/s, 5 var
+# Quadtree,  4000 steps,    38.6722   CPU,    38.78    real, 6.76e+06  points.step/s, 5 var
+# Quadtree,  8000 steps,   327.495    CPU,   328.4     real, 6.39e+06  points.step/s, 5 var
+# Quadtree, 16000 steps,  4141.89     CPU,  4160.      real, 4.03e+06  points.step/s, 5 var
+# Quadtree, 32000 steps, 33112        CPU, 33210.      real, 4.04e+06  points.step/s, 5 var
 
 
 16      4.8603152562983788e-02   1.0834811068784592e-01   5.3811470153198404e-01
@@ -314,8 +311,69 @@ Timing
 4.00e+06
 5.56e+06
 6.02e+06
-6.7e+06
+6.70e+06
 6.76e+06
 6.39e+06
 4.03e+06
 4.04e+06
+
+
+------------------------
+Tuesday 5/28/2019
+------------------------
+# Color equation + WPA
+
+# Quadtree,   250 steps,     0.017644 CPU,     0.01766 real, 3.62e+06 points.step/s, 7 var
+# Quadtree,   500 steps,     0.094248 CPU,     0.09475 real, 5.40e+06 points.step/s, 7 var
+# Quadtree,  1000 steps,     0.647041 CPU,     0.6546  real, 6.26e+06 points.step/s, 7 var
+# Quadtree,  2000 steps,     5.15073  CPU,     5.216   real, 6.28e+06 points.step/s, 7 var
+# Quadtree,  4000 steps,    41.9602   CPU,    42.1     real, 6.23e+06 points.step/s, 7 var
+# Quadtree,  8000 steps,   374.315    CPU,   375.6     real, 5.58e+06 points.step/s, 7 var
+# Quadtree, 16000 steps,  4414.93     CPU,  4435.      real, 3.78e+06 points.step/s, 7 var
+# Quadtree, 32000 steps, 32556.2      CPU, 52230.      real, 4.12e+06 points.step/s, 7 var ***
+
+# Accuracy (color equation + WPA)
+16      4.8361747673094181e-02   1.0878446396539647e-01   5.5625842966496819e-01
+32      2.4900337874320673e-02   7.1670666278418046e-02   4.9082787797897220e-01
+64      1.3200411560368958e-02   4.6370144802719518e-02   3.8690275024334109e-01
+128     6.1346278274888068e-03   2.6448079163523566e-02   2.9226305590035162e-01
+256     2.4036565190245327e-03   1.2891196268168091e-02   1.8664872248847331e-01
+512     8.3135495889491602e-04   5.4683324211929280e-03   9.7128181755126719e-02
+1024    3.5448319490828634e-04   2.3706632922562451e-03   4.2865578723500219e-02
+2048    1.7639396287489741e-04   1.1431503780907530e-03   1.9034171150887735e-02
+
+
+Timing (WPA + color equation)
+--------
+3.62e+06
+5.40e+06
+6.26e+06
+6.28e+06
+6.23e+06
+5.58e+06
+3.78e+06
+4.12e+06    % Computed using CPU time (not real time)
+
+
+------------------------
+Tuesday 6/12/2019
+------------------------
+# Fix transport problem so it looks more like Basilisk
+
+/* WPA */
+# Quadtree, 4000 steps, 37.2048 CPU, 37.26 real, 7.03e+06 points.step/s, 5 var
+
+
+# Multigrid, 4000 steps, 32.6628 CPU, 32.72 real, 8.01e+06 points.step/s, 5 var
+
+256     2.0467937385292025e-03   1.0403961615723697e-02   1.3426019242310960e-01
+256     2.0467937385292585e-03   1.0403961615723708e-02   1.3426019242310960e-01
+256     2.0467937385292585e-03   1.0403961615723708e-02   1.3426019242310960e-01
+
+256     5.5001860156274748e-03   2.4386230984836207e-02   2.3537683430479339e-01
+
+/* Basilisk
+# Multigrid, 4000 steps, 15.8017 CPU, 15.82 real, 1.66e+07 points.step/s, 7 var
+
+256     5.8486818585034286e-03   2.3455987425737800e-02   2.0744263083027215e-01
+

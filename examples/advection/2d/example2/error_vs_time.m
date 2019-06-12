@@ -18,12 +18,14 @@ else
     norm2use = varargin{4};
 end
 
-cl = {'r','b','g'};  % color
-sy = {'.','p','s'};  % symbol
-sz = [30,15,12];       % size
-fc = {'none','b','g'};
+m = length(e);
 
-for i = 1:length(e)
+cl = {'r','b','g','m'};  % color
+sy = {'.','p','s','v'};  % symbol
+sz = [30,15,12,12];       % size
+fc = {'none','b','g','m'};
+
+for i = 1:m
     ph(i) = loglog(e{i}(:,norm2use+1),t{i},[cl{i},sy{i}]);
     set(ph(i),'markersize',sz(i));
     set(ph(i),'markerfacecolor',fc{i});
@@ -31,16 +33,25 @@ for i = 1:length(e)
 end
 
 
-maxk = 100;
-for i = 1:3
-    if (length(e{i}) < maxk)
-        maxk = length(e{i});
-    end
+maxk = 0;
+for k = 1:m
+    maxk = max([maxk,length(e{k})]);
 end
 
-for k = 1:maxk
-    ev = [e{1}(k,norm2use+1),e{2}(k,norm2use+1),e{3}(k,norm2use+1)];
-    tv = [t{1}(k),t{2}(k),t{3}(k)];
+for j = 1:maxk
+    ev = [];
+    tv = [];
+    for k = 1:m
+        if (j > length(e{k}))
+            el = nan;
+            tl = nan;
+        else
+            el = e{k}(j,norm2use+1);
+            tl = t{k}(j);
+        end
+        ev = [ev, el];
+        tv = [tv, tl];
+    end
     loglog(ev,tv,'k');
 end
 
