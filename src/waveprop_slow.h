@@ -46,14 +46,6 @@ void wpa_initialize(vector **wpa_fm, vector **wpa_fp, vector **wpa_flux);
 void wpa_cleanup(vector** wpa_fm, vector** wpa_fp, vector** wpa_flux);
 
 
-#if FAST
-/* Set up static variables used by events */
-static vector *wpa_fp = NULL; 
-static vector *wpa_fm = NULL; 
-static vector *wpa_flux = NULL;
-#endif
-
-
 /* ----------------------- Static values used internally ------------------------------ */
 
 static scalar *statevars = NULL;
@@ -148,19 +140,6 @@ void wpa_cleanup(vector** wpa_fm, vector** wpa_fp, vector** wpa_flux)
         free(*wpa_fm);        
     }                
 }
-
-#if FAST
-event wpa_setup_fast(i = 0)
-{
-    wpa_initialize(&wpa_fm, &wpa_fp, &wpa_flux);
-}
-
-event wpa_cleanup_fast(i = end, last)
-{
-    wpa_cleanup(&wpa_fm, &wpa_fp, &wpa_flux);    
-}
-#endif
-
 
 event cleanup(i=end)
 {
