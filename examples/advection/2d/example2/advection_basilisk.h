@@ -55,7 +55,7 @@ criterion. The integration itself is performed in the events of
 event velocity (i++) 
 {
     tnext = HUGE;
-    dt = dtnext (dt);
+    dt = dtnext (DT);
 }
 
 

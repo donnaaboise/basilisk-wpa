@@ -1,11 +1,11 @@
 #include "grid/multigrid.h"
 
-#define USE_WAVEPROP 1
+#define USE_WAVEPROP 0
 
 #if USE_WAVEPROP
 #include "wpa_transport.h"
 #else
-#include "advection.h"
+#include "advection_basilisk.h"
 #endif
 
 
@@ -31,7 +31,7 @@ scalar *tracers = {f, g, h};
 #define NSTEP0  25
 
 /* Change FACTOR to increase resolution */
-#define FACTOR  16    /* 1,2,4,8,16,32,64, ... */
+#define FACTOR  64    /* 1,2,4,8,16,32,64, ... */
 
 
 /* Computed from FACTOR.  Note : Don't re-define N here! */
@@ -122,6 +122,8 @@ event velocity (i++) {
         u.x[] = f.x*(psi[0,1] - psi[])/Delta;        
     }
     boundary ((scalar *){u});
+    tnext = HUGE;
+    dt = dtnext (DT);
 }
 #endif
 
@@ -132,13 +134,11 @@ event logfile (i = {0,NOUT})  {
     fprintf (stderr, "# %8.4f %24.16e %24.16e %24.16e\n", t, s.sum, s.min, s.max);
 }
 
-//event verbosity (i++) {
 event verbosity (i += NSTEP) {
     fprintf(stdout,"Step %6d : dt = %8.4e; Time = %12.4f\n",i, dt, t);
     fflush(stdout);
 }
 
-//event field (t = TFINAL) {
 event field (i = NOUT) {
     int m = 0; 
     for(scalar q in tracers) {
@@ -169,8 +169,7 @@ event movie (i += 10) {
 }
 #endif
 
-//event end (i = NOUT) {
-event end (t = TFINAL) {
+event end (i = NOUT) {
   printf ("i = %d t = %g\n", i, t);
 }
 

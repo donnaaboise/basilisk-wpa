@@ -1,21 +1,25 @@
-function plot_errors(run2use,idx,compare)
+function plot_errors(varargin)
 
+use_saved_data = varargin{1};
 
-
-if (true)
+if (use_saved_data)
     % Timing data taken from 
     % projects/Basilisk/code/basilisk-wpa/examples/advection/2d/example2/...
     % errors.txt
     % labels='Basilisk', 'ForestClaw', 'WPA (fwaves)', 'WPA (color)'
+    run2use = varargin{2};
+    idx = varargin{3};
+    compare = varargin{4};
     td = load('timing_data');
     e = td.e{run2use};
     t = td.t;
     labels = td.labels;
     tstr = labels{run2use};
 else    
-    idx = varargin{1};
-    compare = varargin{2};
-    e = varargin{3};
+    e = varargin{2};
+    idx = varargin{3};
+    compare = varargin{4};
+    tstr = 'Input errors';
 end
 
 lh = zeros(3,1);
@@ -46,7 +50,8 @@ end
 Nvec = e(:,1);
 n = length(Nvec);
 
-c = {'r','b','g'};
+c = {'r','b','g','c'};
+m = {'.','p','v','s'};
 if (nargin == 1)
     idx = 1:n;
 end
@@ -90,11 +95,11 @@ xlim([2^(p0-0.5), 2^(p1+0.5)]);
 set(gca,'fontsize',16);
 
 if (size(e,2) == 5)
-    idx = [2:5];
+    cidx = [2:5];
 else
-    idx = 2:4;
+    cidx = 2:4;
 end
-conv_rates = log(e(1:end-1,idx)./e(2:end,idx))/log(2);
+conv_rates = log(e(1:end-1,cidx)./e(2:end,cidx))/log(2);
 fprintf('\n');
 fprintf('          Convergence rates\n');
 cr = [Nvec(2:end) Nvec(1:end-1) conv_rates];
@@ -108,7 +113,8 @@ else
     fprintf('%s\n',double('-')*ones(1,39));
 end
     
-ylim([1e-5,1e2]);
+ylim([1e-6,1e1]);
 
 
+shg
 end

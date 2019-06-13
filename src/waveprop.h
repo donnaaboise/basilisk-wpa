@@ -70,11 +70,13 @@ event init (i = 0)
     /* User defined-init is called first */
 
     /* Call user defined values that should be set before anything else is checked */
+#if 0    
     if (!(dt_initial < DT))
     {        
         printf("dt_initial is not set (event:user_parameters).\n");
         exit(0);
     }
+#endif    
     dt = dt_initial;
     boundary (statevars);
     Frame = 0;
@@ -438,7 +440,7 @@ double wpa_advance(double dt, double *cflmax)
     } /* End of dimension loop */
 
     wpa_cleanup(&wpa_fm, &wpa_fp, &wpa_flux);
-    
+
     *cflmax = cflmax_local;
     return dtnew;
 }
@@ -451,13 +453,20 @@ void run()
 
     double cflmax = 0;
     double dtnew;
-    double dt_curr;
+    //double dt_curr;
 
     /* Events are processed first, followed by statements in the while loop */
     perf.nc = perf.tnc = 0;
     perf.gt = timer_start();
     while (events (true)) {
         dtnew = wpa_advance(dt, &cflmax);
+        if (cflmax > 1) 
+        {
+            /* CFL using time step dt */
+            printf("CFL exceeds 1; cflmax = %g\n",cflmax);
+            //exit(0);
+        }    
+#if 0        
         dt_curr = dt;
         t += dt_curr; /* Use step just taken */        
 
@@ -476,9 +485,12 @@ void run()
             dt = dtnext(dtnew);            
             //t = tnext;  This is t += dtnew;  we want t += dt (above). 
         }
+#endif
+        dt = dtnext(dtnew);
+        t = tnext;
         iter = inext;
         fprintf(stdout,"Step %6d : dt = %8.4e; cflmax = %12.6f; Time = %12.4f\n",
-                iter, dt_curr, cflmax,t);
+                iter, dt, cflmax,t);
         fflush(stdout);
     }
     timer_print (perf.gt, iter, perf.tnc);
