@@ -43,7 +43,7 @@ A complete description of the multi-dimensional wave propagation algorithm can b
 
 /**
 
-## WPA parameters
+## Global arrays and parameters
 
 ### State variables
 
@@ -204,7 +204,7 @@ attribute {
 
 
 /**
-### Riemann solver
+## Riemann solver
 
 Riemann solvers are defined in solver files.  The Riemann solver for the WPA takes as input arguments the state and auxiliary variables from two horizontally or vertically adjacent cells and returns waves, speeds and fluctuations at the common cell interface. 
 */
@@ -221,20 +221,22 @@ void wpa_rpn2(int dir, int meqn, int mwaves,
 /**
 ## Wave limiters
 
-The variable ${\tt mwaves}$ is set by the solver file.   The simplest way to set limiters is to specify a single limiter for all waves.  To do this, the 
-boolean variable $limit\_each\_wave$ must be set to false, and a single numeric value (see below) will be used for each wave.   This is the default option for the wave propagation algorithm.  The default limiter is the generalized minmod limiter.  
+The simplest way to set limiters is to specify a single limiter for all waves.  To do this, the 
+boolean variable ${\tt limit\_each\_wave}$ must be set to false, and a single numeric value (see below) will be used for each wave.   This is the default option for the wave propagation algorithm.  The default limiter is the generalized minmod limiter.  
 */
 
 bool limit_each_wave = false;
-int wave_limiter = 6;  
+int wave_limiter = 6;    /* Generalized minmod limiter */
 
 /**
-Individual waves can be limited separately by setting entries in the array ${\tt mthlim}$.  Again, this is usually managed by the solver file.
+Individual waves can be limited separately by setting entries in the array ${\tt mthlim}$.  Again, this is usually managed by the solver file, and so the user does not explicitly set $\tt mthlim$, but will set a proxy variable defined by the solver. 
 
-Often the number of waves (${\tt mwaves}$) will equal the number of state variables  (${\tt meqn}$), but there are common cases where the number of waves is less  than the number of state variables.  For example, a tracer transport problem may involve several tracers all moving with a single wave speed.  
+The variable ${\tt mwaves}$ is set by the solver file.   Often, we will have $\tt mwaves$ equal to the number of state variables $\tt meqn$.  But there are common cases where the number of waves is less  than the number of state variables.  For example, a tracer transport problem may involve several tracers all moving with a single wave speed.  
+
+For this reason, there is no correct default value for $\tt mwaves$.   Similarly, the number of components in the array $\tt mthlim$ cannot also be known here, but is specified by individual solvers.
 */
 
-int mwaves = 0;
+int mwaves = 0;    /* Set by the solver */
 int *mthlim = NULL;
 
 /** 
@@ -278,7 +280,7 @@ double wpa_limiter(double a, double b,int mlim) {
             wlimiter = max(0., max(min(r,1.5),min(1.5*r,1.)));
             break;
 
-        /* Generalized minmod */
+        /* Generalized minmod (default) */
         case 6:
             th = 1.3;
             wlimiter = max(0., min(th*r,min((1+r)/2.,th)));
